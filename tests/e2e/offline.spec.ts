@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { EMPLOYEE, login } from './helpers';
+import { EMPLOYEE, login, openCash } from './helpers';
 
 test('la app abre y navega sin conexión tras la primera visita', async ({ page, context }) => {
   await login(page, EMPLOYEE);
@@ -8,6 +8,7 @@ test('la app abre y navega sin conexión tras la primera visita', async ({ page,
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
+  await openCash(page);
   await page.getByRole('link', { name: 'Vender' }).first().click();
   await expect(
     page.getByRole('list', { name: 'Productos' }).getByRole('button').first(),

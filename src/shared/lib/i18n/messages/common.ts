@@ -49,9 +49,6 @@ export const common = {
   'common.saved': 'Cambios guardados',
   'common.savedOffline': 'Guardado en este dispositivo. Se sincronizará al volver la conexión.',
   'common.pendingSync': 'Pendiente de sincronizar',
-  'common.comingNextPhase': 'Disponible en la siguiente fase',
-  'common.comingNextPhaseHint':
-    'La pantalla y su diseño están listos; la lógica de negocio se implementa en la fase de funcionalidades.',
   'common.lastDays': 'Últimos {days} días',
   'common.loadError': 'No pudimos cargar la información',
   'common.offlineNoCache':

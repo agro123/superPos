@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { EMPLOYEE, login } from './helpers';
+import { ADMIN, EMPLOYEE, login, openCash } from './helpers';
 
 test('login → POS → agregar al carrito → recargar → el carrito persiste', async ({ page }) => {
   await login(page, EMPLOYEE);
@@ -7,6 +7,9 @@ test('login → POS → agregar al carrito → recargar → el carrito persiste'
   // El empleado vende, pero no ve la gestión del catálogo.
   const nav = page.getByRole('navigation', { name: 'Navegación principal' });
   await expect(nav.getByRole('link', { name: 'Productos' })).toHaveCount(0);
+  await nav.getByRole('link', { name: 'Vender' }).click();
+  await expect(page.getByText('La caja está cerrada')).toBeVisible();
+  await openCash(page);
   await nav.getByRole('link', { name: 'Vender' }).click();
 
   const products = page.getByRole('list', { name: 'Productos' });
@@ -23,6 +26,57 @@ test('login → POS → agregar al carrito → recargar → el carrito persiste'
   await expect(cart.getByText('3 artículos')).toBeVisible();
   await expect(cart.getByRole('group', { name: 'Cantidad: Arroz 500 g' })).toContainText('2');
   await expect(cart.getByRole('button', { name: 'Cobrar $ 10.900' })).toBeVisible();
+});
+
+test('órdenes simultáneas y productos agotados', async ({ page }) => {
+  await login(page, EMPLOYEE);
+  await openCash(page);
+  await page.getByRole('link', { name: 'Vender' }).first().click();
+
+  const products = page.getByRole('list', { name: 'Productos' });
+  await expect(products.getByRole('button', { name: /Detergente 1 kg/ })).toBeDisabled();
+
+  const cart = page.getByRole('region', { name: 'Carrito' });
+  await products.getByRole('button', { name: /Arroz 500 g/ }).click();
+  await cart.getByRole('button', { name: 'Nueva orden' }).click();
+  await expect(cart.getByRole('tab', { name: 'Orden 2' })).toHaveAttribute('aria-selected', 'true');
+  await expect(cart.getByText('El carrito está vacío')).toBeVisible();
+  await cart.getByRole('tab', { name: /Orden 1/ }).click();
+  await expect(cart.getByText('1 artículo', { exact: true })).toBeVisible();
+});
+
+test('abrir caja → vender en efectivo y tarjeta → resumen y cierre', async ({ page }) => {
+  await login(page, ADMIN);
+  await openCash(page, '50000');
+  await page.getByRole('link', { name: 'Vender' }).first().click();
+
+  const products = page.getByRole('list', { name: 'Productos' });
+  const cart = page.getByRole('region', { name: 'Carrito' });
+  const pay = async (method: 'Efectivo' | 'Tarjeta') => {
+    await cart.getByRole('button', { name: /Cobrar/ }).click();
+    const sheet = page.getByRole('dialog');
+    await sheet.getByRole('radio', { name: method }).click();
+    if (method === 'Efectivo') await sheet.getByRole('button', { name: 'Monto exacto' }).click();
+    await sheet.getByRole('button', { name: 'Confirmar cobro' }).click();
+    await expect(page.getByText(/Venta .+ registrada/).first()).toBeVisible();
+  };
+  await products.getByRole('button', { name: /Arroz 500 g/ }).click();
+  await pay('Efectivo');
+  await products.getByRole('button', { name: /Huevos AA x 12/ }).click();
+  await pay('Tarjeta');
+
+  await page
+    .getByRole('navigation', { name: 'Navegación principal' })
+    .getByRole('link', { name: 'Caja' })
+    .click();
+  await page.getByRole('button', { name: 'Cerrar caja' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Cerrar caja' });
+  await expect(dialog.getByText('$ 53.200')).toBeVisible(); // base + efectivo
+  await expect(dialog.getByText('$ 9.800').first()).toBeVisible(); // tarjeta
+  await dialog.getByLabel('Efectivo contado').fill('53200');
+  await expect(dialog.getByText('La caja cuadra')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Cerrar caja' }).click();
+  await expect(page.getByText('La caja está cerrada')).toBeVisible();
 });
 
 test('un empleado sin permiso ve "sin acceso" en una ruta protegida', async ({ page }) => {

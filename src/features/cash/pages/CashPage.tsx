@@ -1,91 +1,43 @@
 import { Wallet } from 'lucide-react';
 import { useState } from 'react';
+import { useCurrentUser } from '@/features/auth';
 import { useActiveBusiness } from '@/features/business';
 import { Can } from '@/features/users';
-import type { Synced } from '@/shared/domain/live';
-import { subtractMoney, type Money } from '@/shared/domain/money';
+import { useOnlineStatus } from '@/shared/hooks/useSyncSummary';
 import { useToast } from '@/shared/hooks/useToast';
-import { formatDateTime, formatMoney } from '@/shared/lib/formatters';
 import { t } from '@/shared/lib/i18n';
-import {
-  Badge,
-  Button,
-  DataTable,
-  EmptyState,
-  Modal,
-  PageHeader,
-  Skeleton,
-  Text,
-  type DataTableColumn,
-} from '@/shared/ui';
-import { useDeviceCode, useRecentShifts } from '../application/useCash';
-import type { CashShift } from '../domain/cashShift';
-import { CloseShiftForm, OpenShiftForm } from '../ui/ShiftForms';
+import { Badge, Button, EmptyState, Modal, PageHeader, Skeleton, Text } from '@/shared/ui';
+import { useCurrentShift, useRecentShifts, useShiftSummary } from '../application/useCash';
+import { addExpense, closeShift, openShift, setShiftClosing } from '../application/cashActions';
+import { CurrentShiftPanel } from '../ui/CurrentShiftPanel';
+import { ShiftHistory } from '../ui/ShiftHistory';
+import { CloseShiftForm, ExpenseForm, OpenShiftForm } from '../ui/ShiftForms';
+import { ShiftSummaryView } from '../ui/ShiftSummaryView';
 
-/** Caja: estado del turno y modales de apertura/cierre (sin lógica en esta fase). */
+type ModalId = 'open' | 'close' | 'expense' | null;
+
+/** Caja: apertura con base, ventas del turno, gastos y cierre con arqueo (ADR 0009). */
 export default function CashPage() {
-  const { business } = useActiveBusiness();
-  const deviceCode = useDeviceCode();
-  const shifts = useRecentShifts(business.id);
+  const { business, paymentMethods } = useActiveBusiness();
+  const user = useCurrentUser();
   const toast = useToast();
-  const [modal, setModal] = useState<'open' | 'close' | null>(null);
-  const current = shifts.data?.find((shift) => shift.status !== 'closed') ?? null;
-  const money = (amount: Money | null) =>
-    amount === null ? '—' : formatMoney(amount, business.currency);
-  const pending = () => {
-    toast({
-      title: t('common.comingNextPhase'),
-      description: t('common.comingNextPhaseHint'),
-      tone: 'info',
-    });
-    setModal(null);
+  const online = useOnlineStatus();
+  const shifts = useRecentShifts(business.id);
+  const { shift, loading, deviceCode } = useCurrentShift(business.id);
+  const live = useShiftSummary(business.id, shift);
+  const [modal, setModal] = useState<ModalId>(null);
+  const saved = (title: string) => {
+    toast({ title, description: online ? undefined : t('common.savedOffline'), tone: 'success' });
   };
 
-  const columns: DataTableColumn<Synced<CashShift>>[] = [
-    {
-      id: 'opened',
-      header: t('cash.col.opened'),
-      cell: (s) => formatDateTime(s.openedAt, business.timezone),
-      sortValue: (s) => s.openedAt.getTime(),
-    },
-    {
-      id: 'closed',
-      header: t('cash.col.closed'),
-      hideOnMobile: true,
-      cell: (s) => (s.closedAt ? formatDateTime(s.closedAt, business.timezone) : '—'),
-    },
-    {
-      id: 'status',
-      header: t('common.status'),
-      cell: (s) => (
-        <Badge tone={s.status === 'closed' ? 'neutral' : 'success'}>
-          {t(`cash.status.${s.status}`)}
-        </Badge>
-      ),
-    },
-    {
-      id: 'expected',
-      header: t('cash.col.expected'),
-      align: 'right',
-      hideOnMobile: true,
-      cell: (s) => money(s.expectedCashMinor),
-    },
-    {
-      id: 'counted',
-      header: t('cash.col.counted'),
-      align: 'right',
-      cell: (s) => money(s.countedCashMinor),
-    },
-    {
-      id: 'difference',
-      header: t('cash.col.difference'),
-      align: 'right',
-      cell: (s) =>
-        s.countedCashMinor !== null && s.expectedCashMinor !== null
-          ? money(subtractMoney(s.countedCashMinor, s.expectedCashMinor))
-          : '—',
-    },
-  ];
+  const startClose = () => {
+    if (shift?.status === 'open') setShiftClosing(business.id, shift.id, true);
+    setModal('close');
+  };
+  const cancelClose = () => {
+    if (shift?.status === 'closing') setShiftClosing(business.id, shift.id, false);
+    setModal(null);
+  };
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -94,61 +46,71 @@ export default function CashPage() {
         description={t('cash.description')}
         actions={<Badge>{t('cash.device', { code: deviceCode })}</Badge>}
       />
-      <section
-        aria-labelledby="current-shift"
-        className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between"
-      >
-        <h2 id="current-shift" className="sr-only">
-          {t('cash.current')}
-        </h2>
-        {shifts.isPending ? (
-          <Skeleton className="h-12 w-64" />
-        ) : (
-          <div>
-            <Text variant="strong">
-              {current
-                ? t('cash.openState', { time: formatDateTime(current.openedAt, business.timezone) })
-                : t('cash.closedState')}
-            </Text>
-            <Text variant="muted">
-              {current
-                ? t('cash.openingFloat') + ': ' + money(current.openingFloatMinor)
-                : t('cash.closedHint')}
-            </Text>
-          </div>
-        )}
-        {current ? (
-          <Can permission="cash.close">
+      {loading ? (
+        <Skeleton className="h-40" />
+      ) : shift ? (
+        <CurrentShiftPanel
+          shift={shift}
+          timezone={business.timezone}
+          currency={business.currency}
+          actions={
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setModal('expense');
+                }}
+              >
+                {t('cash.addExpense')}
+              </Button>
+              <Can permission="cash.close">
+                <Button onClick={startClose}>
+                  {shift.status === 'closing' ? t('cash.resumeClose') : t('cash.close')}
+                </Button>
+              </Can>
+            </>
+          }
+        >
+          {live.error ? (
+            <div className="flex items-center gap-3">
+              <Text variant="muted">{t('errors.unknown')}</Text>
+              <Button variant="outline" onClick={live.refetch}>
+                {t('common.retry')}
+              </Button>
+            </div>
+          ) : live.summary ? (
+            <ShiftSummaryView
+              summary={live.summary}
+              openingFloat={shift.openingFloatMinor}
+              currency={business.currency}
+              methods={paymentMethods}
+            />
+          ) : (
+            <Skeleton className="h-32" />
+          )}
+        </CurrentShiftPanel>
+      ) : (
+        <EmptyState
+          icon={<Wallet />}
+          title={t('cash.closedState')}
+          description={t('cash.closedHint')}
+          action={
             <Button
-              variant="outline"
               onClick={() => {
-                setModal('close');
+                setModal('open');
               }}
             >
-              {t('cash.close')}
+              {t('cash.open')}
             </Button>
-          </Can>
-        ) : (
-          <Button
-            onClick={() => {
-              setModal('open');
-            }}
-          >
-            {t('cash.open')}
-          </Button>
-        )}
-      </section>
-      <section aria-label={t('cash.history')} className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-text">{t('cash.history')}</h2>
-        <DataTable
-          caption={t('cash.historyTable')}
-          columns={columns}
-          rows={shifts.data ?? []}
-          getRowId={(s) => s.id}
-          loading={shifts.isPending}
-          emptyState={<EmptyState icon={<Wallet />} title={t('cash.noHistory')} />}
+          }
         />
-      </section>
+      )}
+      <ShiftHistory
+        shifts={shifts.data ?? []}
+        loading={shifts.isPending}
+        currency={business.currency}
+        timezone={business.timezone}
+      />
       <Modal
         open={modal === 'open'}
         onOpenChange={(open) => {
@@ -162,22 +124,77 @@ export default function CashPage() {
           </Button>
         }
       >
-        <OpenShiftForm currency={business.currency} onSubmit={pending} />
+        <OpenShiftForm
+          currency={business.currency}
+          onSubmit={({ openingFloatMinor }) => {
+            openShift(business.id, deviceCode, openingFloatMinor, user.uid);
+            saved(t('cash.opened'));
+            setModal(null);
+          }}
+        />
       </Modal>
       <Modal
-        open={modal === 'close'}
+        open={modal === 'expense'}
         onOpenChange={(open) => {
-          setModal(open ? 'close' : null);
+          setModal(open ? 'expense' : null);
+        }}
+        title={t('cash.addExpense')}
+        footer={
+          <Button type="submit" form="expense-form">
+            {t('common.save')}
+          </Button>
+        }
+      >
+        <ExpenseForm
+          currency={business.currency}
+          onSubmit={(values) => {
+            if (shift) addExpense(business.id, shift.id, values, user.uid);
+            saved(t('cash.expenseSaved'));
+            setModal(null);
+          }}
+        />
+      </Modal>
+      <Modal
+        open={modal === 'close' && shift !== null}
+        onOpenChange={(open) => {
+          if (!open) cancelClose();
         }}
         title={t('cash.closeTitle')}
         description={t('cash.closeDescription')}
+        size="lg"
         footer={
           <Button type="submit" form="close-shift-form">
             {t('cash.close')}
           </Button>
         }
       >
-        <CloseShiftForm currency={business.currency} onSubmit={pending} />
+        {shift && live.summary ? (
+          <div className="flex flex-col gap-6">
+            <ShiftSummaryView
+              summary={live.summary}
+              openingFloat={shift.openingFloatMinor}
+              currency={business.currency}
+              methods={paymentMethods}
+            />
+            <CloseShiftForm
+              currency={business.currency}
+              expected={live.summary.expectedCash}
+              onSubmit={({ countedCashMinor, notes }) => {
+                if (!live.summary) return;
+                closeShift(
+                  business.id,
+                  shift.id,
+                  { countedCash: countedCashMinor, expectedCash: live.summary.expectedCash, notes },
+                  user.uid,
+                );
+                saved(t('cash.closed'));
+                setModal(null);
+              }}
+            />
+          </div>
+        ) : (
+          <Skeleton className="h-40" />
+        )}
       </Modal>
     </div>
   );

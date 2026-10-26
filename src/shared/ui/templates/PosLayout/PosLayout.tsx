@@ -15,7 +15,10 @@ export interface PosLayoutProps {
   onCartOpenChange: (open: boolean) => void;
 }
 
-/** Pantalla de venta: catálogo + carrito lateral en tablet/escritorio, carrito en hoja inferior en móvil. */
+/**
+ * Pantalla de venta: catálogo + carrito lateral en tablet/escritorio, carrito en hoja inferior en móvil.
+ * Bajo `lg` reserva 4rem para la barra de pestañas inferior del `AppShell`.
+ */
 export function PosLayout({
   catalog,
   cart,
@@ -24,12 +27,12 @@ export function PosLayout({
   onCartOpenChange,
 }: PosLayoutProps) {
   return (
-    <div className="flex h-[calc(100dvh-4rem)] min-h-0">
+    <div className="flex h-[calc(100dvh-8rem)] min-h-0 lg:h-[calc(100dvh-4rem)]">
       <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-4 pb-24 md:pb-4">
         {catalog}
       </div>
       <aside className="hidden w-96 shrink-0 border-l border-border md:block">{cart}</aside>
-      <div className="fixed inset-x-0 bottom-0 z-(--sp-z-sticky) border-t border-border bg-surface p-3 md:hidden">
+      <div className="fixed inset-x-0 bottom-16 z-(--sp-z-sticky) border-t border-border bg-surface p-3 md:hidden">
         <Button
           size="lg"
           fullWidth

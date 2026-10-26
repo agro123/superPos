@@ -1,5 +1,9 @@
+import { Wallet } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import { useCurrentUser } from '@/features/auth';
 import { useActiveBusiness } from '@/features/business';
+import { useCurrentShift } from '@/features/cash';
 import { findByBarcode, useCategories, useProducts, type Product } from '@/features/catalog';
 import { useBarcodeScanner } from '@/shared/hooks/useBarcodeScanner';
 import { useHotkey } from '@/shared/hooks/useHotkey';
@@ -7,9 +11,10 @@ import { useOnlineStatus } from '@/shared/hooks/useSyncSummary';
 import { useToast } from '@/shared/hooks/useToast';
 import { formatMoney, formatNumber } from '@/shared/lib/formatters';
 import { plural, t } from '@/shared/lib/i18n';
-import { PosLayout } from '@/shared/ui';
+import { Button, EmptyState, PosLayout, Skeleton } from '@/shared/ui';
 import { useCartStore } from '../application/cartStore';
 import { useCart } from '../application/useCart';
+import { useCheckout } from '../application/useCheckout';
 import { remainingStock } from '../domain/cart';
 import { saleStatusMachine, type SaleStatus } from '../domain/sale';
 import { OrderTabs } from '../ui/OrderTabs';
@@ -17,7 +22,7 @@ import { PaymentPanel } from '../ui/PaymentPanel';
 import { PosCart } from '../ui/PosCart';
 import { PosCatalog } from '../ui/PosCatalog';
 
-/** Punto de venta. En esta fase NO registra ventas: el carrito y el cobro son UI + dominio. */
+/** Punto de venta. Exige un turno de caja abierto en este dispositivo (ADR 0009). */
 export default function PosPage() {
   const { business, taxes, paymentMethods } = useActiveBusiness();
   const products = useProducts(business.id);
@@ -28,6 +33,17 @@ export default function PosPage() {
   const online = useOnlineStatus();
   const [cartOpen, setCartOpen] = useState(false);
   const [status, setStatus] = useState<SaleStatus>('draft');
+  const user = useCurrentUser();
+  const navigate = useNavigate();
+  const current = useCurrentShift(business.id);
+  const shift = current.shift?.status === 'open' ? current.shift : null;
+  const checkout = useCheckout({
+    businessId: business.id,
+    deviceCode: current.deviceCode,
+    cashShiftId: shift?.id ?? '',
+    uid: user.uid,
+    tracksStock: (productId) => products.data?.find((p) => p.id === productId)?.trackStock ?? false,
+  });
 
   /** Agrega si hay stock; devuelve `false` (con aviso) si el producto está agotado o al tope. */
   const add = (product: Product): boolean => {
@@ -75,8 +91,23 @@ export default function PosPage() {
     addByCode(code, []);
   });
   useHotkey('F9', () => {
-    if (cart.lines.length > 0) goTo('awaiting_payment');
+    if (shift && cart.lines.length > 0) goTo('awaiting_payment');
   });
+
+  if (current.loading) return <Skeleton className="m-4 h-64" />;
+  if (!shift) {
+    return (
+      <div className="p-4 md:p-6">
+        <h1 className="sr-only">{t('pos.title')}</h1>
+        <EmptyState
+          icon={<Wallet />}
+          title={current.shift ? t('pos.shiftClosing') : t('pos.shiftRequired')}
+          description={t('pos.shiftRequiredHint')}
+          action={<Button onClick={() => void navigate('/cash')}>{t('pos.goToCash')}</Button>}
+        />
+      </div>
+    );
+  }
 
   const itemCount = formatNumber(cart.totals.itemCount);
   return (
@@ -143,12 +174,24 @@ export default function PosPage() {
         currency={business.currency}
         methods={paymentMethods}
         online={online}
-        onConfirm={() => {
+        onConfirm={(method, tendered) => {
+          const result = checkout(cart.lines, cart.totals, [{ method, amount: tendered }]);
+          if (!result.ok) {
+            toast({ title: t('errors.validation'), tone: 'danger' });
+            return;
+          }
+          const sale = result.value;
           toast({
-            title: t('common.comingNextPhase'),
-            description: t('pos.notRecorded'),
-            tone: 'info',
+            title: t('pos.recorded', { number: sale.number }),
+            description:
+              sale.changeMinor > 0
+                ? t('pos.changeDue', { amount: formatMoney(sale.changeMinor, business.currency) })
+                : online
+                  ? undefined
+                  : t('common.savedOffline'),
+            tone: 'success',
           });
+          actions.closeOrder(business.id, cart.activeOrderId);
           goTo('draft');
         }}
       />

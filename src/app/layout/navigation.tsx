@@ -24,6 +24,8 @@ export interface NavEntry {
   permission?: Permission;
   /** Solo si el módulo está activo. */
   module?: ModuleId;
+  /** Aparece también en la barra de pestañas inferior (móvil). */
+  bottomNav?: boolean;
 }
 
 export interface NavGroup {
@@ -38,9 +40,27 @@ export const NAVIGATION: readonly NavGroup[] = [
     id: 'sell',
     items: [
       { to: '/', label: 'nav.home', icon: <Home />, end: true },
-      { to: '/pos', label: 'nav.pos', icon: <ShoppingCart />, permission: 'sales.create' },
-      { to: '/sales', label: 'nav.sales', icon: <ClipboardList />, permission: 'sales.view' },
-      { to: '/cash', label: 'nav.cash', icon: <Wallet />, permission: 'cash.open' },
+      {
+        to: '/pos',
+        label: 'nav.pos',
+        icon: <ShoppingCart />,
+        permission: 'sales.create',
+        bottomNav: true,
+      },
+      {
+        to: '/sales',
+        label: 'nav.sales',
+        icon: <ClipboardList />,
+        permission: 'sales.view',
+        bottomNav: true,
+      },
+      {
+        to: '/cash',
+        label: 'nav.cash',
+        icon: <Wallet />,
+        permission: 'cash.open',
+        bottomNav: true,
+      },
     ],
   },
   {
@@ -48,7 +68,13 @@ export const NAVIGATION: readonly NavGroup[] = [
     label: 'nav.sectionManage',
     items: [
       { to: '/catalog', label: 'nav.catalog', icon: <Package />, permission: 'catalog.manage' },
-      { to: '/inventory', label: 'nav.inventory', icon: <Boxes />, permission: 'inventory.view' },
+      {
+        to: '/inventory',
+        label: 'nav.inventory',
+        icon: <Boxes />,
+        permission: 'inventory.view',
+        bottomNav: true,
+      },
       {
         to: '/customers',
         label: 'nav.customers',

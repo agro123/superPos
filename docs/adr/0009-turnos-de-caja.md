@@ -33,4 +33,4 @@ puede garantizar "un turno abierto por negocio" (no hay transacciones offline, A
 
 ## Estado
 
-Propuesto. La UI de caja está lista; la lógica se implementa en el Prompt 2.
+Propuesto. Implementado: el POS exige turno `open` y el cierre usa `summarizeShift`.

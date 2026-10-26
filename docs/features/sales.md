@@ -8,7 +8,7 @@ related: [../adr/0003-firestore-offline-y-limites-de-transacciones.md, ../adr/00
 
 # sales — punto de venta e historial
 
-**Estado:** UI completa; **no registra ventas** en esta fase.
+**Estado:** registra ventas offline-first; exige turno de caja abierto en el dispositivo.
 
 | Pantalla                                  | Ruta     | Permiso        |
 | ----------------------------------------- | -------- | -------------- |
@@ -26,5 +26,9 @@ related: [../adr/0003-firestore-offline-y-limites-de-transacciones.md, ../adr/00
   `formatSaleNumber`, `stockDecrementsFor`, puertos `SaleReader` (implementado) y `SaleWriter` (L1).
 - Historial: ventas en tiempo real con "Anulada" (por documentos `void`) y "Pendiente de sincronizar".
 
-**Pendiente (Prompt 2):** `SaleWriter.record` (batch venta + stock + movimientos), numeración
-(ADR 0006), anulación, cliente y turno en la venta, pagos electrónicos.
+- Cobro: `buildCheckout` (puro) arma la venta; `saleWriter.record` escribe venta + `increment(-q)` +
+  `inventoryMovements` en un `writeBatch` sin `await`. Número `<deviceCode>-<secuencia>` con la
+  secuencia local en IndexedDB (ADR 0006). Tarjeta/transferencia se registran como `captured`
+  (datáfono externo).
+
+**Pendiente:** anulación, cliente en la venta, pago mixto y pagos electrónicos integrados.

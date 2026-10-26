@@ -18,6 +18,7 @@ export const ui = {
   'ui.userMenu': 'Menú de usuario',
   'ui.skipToContent': 'Saltar al contenido',
   'ui.mainNav': 'Navegación principal',
+  'ui.quickNav': 'Accesos rápidos',
   'ui.settingsNav': 'Secciones de configuración',
   'ui.notifications': 'Notificaciones',
   'ui.sync.online': 'En línea',

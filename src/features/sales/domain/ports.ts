@@ -16,8 +16,10 @@ export interface SaleReader {
 /**
  * Registro de ventas. `record` DEBE escribir la venta, los descuentos de stock (`increment`) y los
  * movimientos de inventario en un único `writeBatch` atómico, que funciona sin conexión (L1, ADR 0003).
- * Se implementa en la fase de funcionalidades (Prompt 2).
+ * No se espera la escritura (offline-first): la UI confirma de inmediato.
  */
 export interface SaleWriter {
-  record(businessId: string, sale: NewSale, stock: readonly StockDecrement[]): void;
+  /** Id generado en cliente para una venta nueva. */
+  newId(businessId: string): string;
+  record(businessId: string, sale: NewSale, stock: readonly StockDecrement[], uid: string): void;
 }

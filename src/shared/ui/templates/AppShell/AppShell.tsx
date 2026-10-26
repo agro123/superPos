@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { cn } from '@/shared/lib/cn';
 import { t } from '@/shared/lib/i18n';
 import { Drawer } from '../../organisms/Drawer';
 
@@ -12,6 +13,8 @@ export interface AppShellProps {
   onMobileNavOpenChange: (open: boolean) => void;
   /** Avisos globales sobre el contenido (nueva versión, sin conexión…). */
   banner?: ReactNode;
+  /** Barra de pestañas inferior, visible solo sin barra lateral (< lg). */
+  bottomNav?: ReactNode;
   children: ReactNode;
 }
 
@@ -22,6 +25,7 @@ export function AppShell({
   mobileNavOpen,
   onMobileNavOpenChange,
   banner,
+  bottomNav,
   children,
 }: AppShellProps) {
   return (
@@ -47,9 +51,14 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         {topBar}
         {banner}
-        <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className={cn('flex-1 outline-none', bottomNav ? 'pb-16 lg:pb-0' : undefined)}
+        >
           {children}
         </main>
+        {bottomNav ? <div className="lg:hidden">{bottomNav}</div> : null}
       </div>
     </div>
   );

@@ -9,9 +9,11 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  increment,
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 import {
@@ -53,6 +55,28 @@ describe('sales', () => {
   it('sales.view lee; no miembro no', async () => {
     await assertSucceeds(getDoc(doc(as(env, EMPLOYEE), path('sales/s1'))));
     await assertFails(getDoc(doc(as(env, OUTSIDER), path('sales/s1'))));
+  });
+
+  it('venta + descuento de stock + movimiento en un solo writeBatch (L1)', async () => {
+    const db = as(env, EMPLOYEE);
+    const batch = writeBatch(db);
+    batch.set(doc(db, path('sales/batch1')), {
+      ...saleData({ cashShiftId: 'shift1' }),
+      ...newAudit(EMPLOYEE),
+    });
+    batch.update(doc(db, path('products/p1')), {
+      stock: increment(-1),
+      updatedAt: serverTimestamp(),
+    });
+    batch.set(doc(db, path('inventoryMovements/m1')), {
+      productId: 'p1',
+      type: 'sale',
+      quantityDelta: -1,
+      reason: null,
+      saleId: 'batch1',
+      ...newAudit(EMPLOYEE),
+    });
+    await assertSucceeds(batch.commit());
   });
 
   it('las ventas son inmutables (L6)', async () => {

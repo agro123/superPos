@@ -6,9 +6,9 @@ import { useActiveBusiness } from '@/features/business';
 import { hasPermission, useCurrentMember } from '@/features/users';
 import { useOnlineStatus, useSyncSummary } from '@/shared/hooks/useSyncSummary';
 import { t } from '@/shared/lib/i18n';
-import { AppShell, AppSidebar, Logo, TopBar, type NavSection } from '@/shared/ui';
+import { AppShell, AppSidebar, BottomNav, Logo, TopBar, type NavSection } from '@/shared/ui';
 import { useThemeStore } from '../providers/theme';
-import { NAVIGATION } from './navigation';
+import { NAVIGATION, type NavEntry } from './navigation';
 import { UpdatePrompt } from './UpdatePrompt';
 
 /** Layout de la app autenticada: navegación filtrada por permisos y módulos, barra superior y avisos. */
@@ -23,17 +23,23 @@ export function RootLayout() {
   const { theme, cycle } = useThemeStore();
   const [navOpen, setNavOpen] = useState(false);
 
+  const visible = (item: NavEntry) =>
+    (!item.permission || hasPermission(member, item.permission)) &&
+    (!item.module || modules[item.module]);
+  const toItem = (item: NavEntry) => ({
+    to: item.to,
+    label: t(item.label),
+    icon: item.icon,
+    end: item.end,
+  });
   const sections: NavSection[] = NAVIGATION.map((group) => ({
     id: group.id,
     label: group.label ? t(group.label) : undefined,
-    items: group.items
-      .filter(
-        (item) =>
-          (!item.permission || hasPermission(member, item.permission)) &&
-          (!item.module || modules[item.module]),
-      )
-      .map((item) => ({ to: item.to, label: t(item.label), icon: item.icon, end: item.end })),
+    items: group.items.filter(visible).map(toItem),
   })).filter((section) => section.items.length > 0);
+  const bottomItems = NAVIGATION.flatMap((group) => group.items)
+    .filter((item) => item.bottomNav && visible(item))
+    .map(toItem);
 
   return (
     <AppShell
@@ -99,6 +105,7 @@ export function RootLayout() {
           ]}
         />
       }
+      bottomNav={<BottomNav items={bottomItems} />}
       banner={
         <>
           <UpdatePrompt />
