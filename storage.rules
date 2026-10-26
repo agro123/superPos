@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// Storage: denegación por defecto. Solo imágenes de catálogo por negocio.
+// Usa reglas entre servicios (firestore.get) para reutilizar la pertenencia y los permisos.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function memberDoc(bid) {
+      return firestore.get(/databases/(default)/documents/businesses/$(bid)/members/$(request.auth.uid));
+    }
+
+    function isMember(bid) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/businesses/$(bid)/members/$(request.auth.uid))
+        && memberDoc(bid).data.status == 'active';
+    }
+
+    function canManageCatalog(bid) {
+      return isMember(bid)
+        && (memberDoc(bid).data.role == 'admin' || 'catalog.manage' in memberDoc(bid).data.extraPermissions);
+    }
+
+    match /businesses/{bid}/products/{productId}/{fileName} {
+      allow read: if isMember(bid);
+      allow create, update: if canManageCatalog(bid)
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/(png|jpeg|webp)');
+      allow delete: if canManageCatalog(bid);
+    }
+  }
+}

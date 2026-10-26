@@ -1,0 +1,92 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '../../shared/ui/tokens/tokens.css';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* Tailwind solo expone los tokens del sistema: nada de colores sueltos. */
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #ffffff;
+  --color-bg: var(--sp-color-bg);
+  --color-surface: var(--sp-color-surface);
+  --color-surface-muted: var(--sp-color-surface-muted);
+  --color-border: var(--sp-color-border);
+  --color-border-strong: var(--sp-color-border-strong);
+  --color-text: var(--sp-color-text);
+  --color-text-muted: var(--sp-color-text-muted);
+  --color-text-subtle: var(--sp-color-text-subtle);
+  --color-primary: var(--sp-color-primary);
+  --color-primary-hover: var(--sp-color-primary-hover);
+  --color-primary-fg: var(--sp-color-primary-fg);
+  --color-primary-soft: var(--sp-color-primary-soft);
+  --color-primary-soft-fg: var(--sp-color-primary-soft-fg);
+  --color-success: var(--sp-color-success);
+  --color-success-soft: var(--sp-color-success-soft);
+  --color-success-soft-fg: var(--sp-color-success-soft-fg);
+  --color-warning: var(--sp-color-warning);
+  --color-warning-soft: var(--sp-color-warning-soft);
+  --color-warning-soft-fg: var(--sp-color-warning-soft-fg);
+  --color-danger: var(--sp-color-danger);
+  --color-danger-hover: var(--sp-color-danger-hover);
+  --color-danger-fg: var(--sp-color-danger-fg);
+  --color-danger-soft: var(--sp-color-danger-soft);
+  --color-danger-soft-fg: var(--sp-color-danger-soft-fg);
+  --color-info: var(--sp-color-info);
+  --color-info-soft: var(--sp-color-info-soft);
+  --color-info-soft-fg: var(--sp-color-info-soft-fg);
+  --color-focus: var(--sp-color-focus);
+  --color-chart-1: var(--sp-color-chart-1);
+  --color-overlay: var(--sp-color-overlay);
+
+  --font-sans: var(--sp-font-sans);
+  --text-*: initial;
+  --text-xs: var(--sp-text-xs);
+  --text-xs--line-height: 1rem;
+  --text-sm: var(--sp-text-sm);
+  --text-sm--line-height: 1.25rem;
+  --text-base: var(--sp-text-base);
+  --text-base--line-height: 1.5rem;
+  --text-lg: var(--sp-text-lg);
+  --text-lg--line-height: 1.75rem;
+  --text-xl: var(--sp-text-xl);
+  --text-xl--line-height: 2rem;
+  --text-2xl: var(--sp-text-2xl);
+  --text-2xl--line-height: 2.5rem;
+
+  --spacing: var(--sp-space);
+  --spacing-touch: var(--sp-touch-target);
+
+  --radius-sm: var(--sp-radius-sm);
+  --radius-md: var(--sp-radius-md);
+  --radius-lg: var(--sp-radius-lg);
+  --radius-full: var(--sp-radius-full);
+
+  --shadow-*: initial;
+  --shadow-sm: var(--sp-shadow-sm);
+  --shadow-md: var(--sp-shadow-md);
+  --shadow-lg: var(--sp-shadow-lg);
+
+  --default-transition-duration: var(--sp-duration-base);
+}
+
+@layer base {
+  html {
+    font-family: var(--sp-font-sans);
+    background-color: var(--sp-color-bg);
+    color: var(--sp-color-text);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    min-height: 100dvh;
+    background-color: var(--sp-color-bg);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--sp-color-focus);
+    outline-offset: 2px;
+  }
+}

@@ -1,0 +1,535 @@
+rules_version = '2';
+
+// Security Rules de SuperPOS (docs/architecture/security.md).
+// Son la ÚNICA barrera real: las comprobaciones de la UI son solo experiencia de usuario.
+// Todo lo que no se permite explícitamente queda denegado.
+// Cada colección nueva exige reglas aquí y pruebas en tests/rules/.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Identidad ----------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function verifiedEmail() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Super administrador de la plataforma: custom claim que solo asigna el Admin SDK (ADR 0010).
+    function isPlatformAdmin() {
+      return signedIn() && request.auth.token.platformAdmin == true;
+    }
+
+    // ---------- Pertenencia y permisos ----------
+    // Las listas replican ROLE_PERMISSIONS (src/features/users/domain/permissions.ts).
+    // src/features/users/domain/permissions.test.ts falla si se desincronizan.
+
+    function adminPermissions() {
+      return ['sales.create', 'sales.view', 'sales.void', 'cash.open', 'cash.close', 'catalog.manage', 'inventory.view', 'inventory.adjust', 'customers.view', 'customers.manage', 'reports.view', 'users.manage', 'settings.manage'];
+    }
+
+    function employeePermissions() {
+      return ['sales.create', 'sales.view', 'cash.open', 'inventory.view', 'customers.view', 'customers.manage'];
+    }
+
+    function rolePermissions(r) {
+      return r == 'admin' ? adminPermissions() : (r == 'employee' ? employeePermissions() : []);
+    }
+
+    function businessPath(bid) {
+      return /databases/$(database)/documents/businesses/$(bid);
+    }
+
+    function memberPath(bid) {
+      return /databases/$(database)/documents/businesses/$(bid)/members/$(uid());
+    }
+
+    // Miembro activo, sin importar el estado del negocio (para leer el propio negocio bloqueado).
+    function isActiveMember(bid) {
+      return signedIn() && exists(memberPath(bid)) && get(memberPath(bid)).data.status == 'active';
+    }
+
+    // Un negocio bloqueado o eliminado por la plataforma deja de operar para todos sus miembros.
+    function businessOperational(bid) {
+      return get(businessPath(bid)).data.get('status', 'active') == 'active';
+    }
+
+    function isMember(bid) {
+      return isActiveMember(bid) && businessOperational(bid);
+    }
+
+    function role(bid) {
+      return get(memberPath(bid)).data.role;
+    }
+
+    function hasPermission(bid, p) {
+      return isMember(bid)
+        && (p in rolePermissions(role(bid)) || p in get(memberPath(bid)).data.extraPermissions);
+    }
+
+    function moduleActive(bid, moduleId) {
+      return get(/databases/$(database)/documents/businesses/$(bid)/settings/modules).data[moduleId] == true;
+    }
+
+    // Arranque de un negocio: el negocio no existía antes del batch y su dueño es quien escribe.
+    function isBootstrapping(bid) {
+      return signedIn()
+        && !exists(businessPath(bid))
+        && getAfter(businessPath(bid)).data.ownerUid == uid();
+    }
+
+    // ---------- Validación genérica ----------
+
+    function auditFields() {
+      return ['createdAt', 'updatedAt', 'createdBy', 'schemaVersion'];
+    }
+
+    function hasExactly(fields) {
+      let all = fields.concat(auditFields());
+      return request.resource.data.keys().hasAll(all) && request.resource.data.keys().hasOnly(all);
+    }
+
+    function isNewAudit() {
+      let d = request.resource.data;
+      return d.createdBy == uid()
+        && d.createdAt == request.time
+        && d.updatedAt == request.time
+        && d.schemaVersion == 1;
+    }
+
+    function isUpdateAudit() {
+      let d = request.resource.data;
+      return d.createdBy == resource.data.createdBy
+        && d.createdAt == resource.data.createdAt
+        && d.schemaVersion == resource.data.schemaVersion
+        && d.updatedAt == request.time;
+    }
+
+    function onlyChanges(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields.concat(['updatedAt']));
+    }
+
+    function isText(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
+    }
+
+    function isOptionalText(v, max) {
+      return v == null || (v is string && v.size() <= max);
+    }
+
+    function isMoney(v) {
+      return v is int && v >= 0;
+    }
+
+    function isOptionalMoney(v) {
+      return v == null || isMoney(v);
+    }
+
+    function isRate(v) {
+      return v is int && v >= 0 && v <= 10000;
+    }
+
+    function isOptionalId(v) {
+      return v == null || isText(v, 1, 128);
+    }
+
+    // ---------- users/{uid}: perfil global ----------
+
+    match /users/{userId} {
+      allow read: if signedIn() && uid() == userId;
+      allow create: if signedIn() && uid() == userId
+        && hasExactly(['displayName', 'email', 'businessIds'])
+        && isText(request.resource.data.displayName, 1, 80)
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.businessIds is list
+        && isNewAudit();
+      allow update: if signedIn() && uid() == userId
+        && onlyChanges(['displayName', 'businessIds'])
+        && isText(request.resource.data.displayName, 1, 80)
+        && request.resource.data.businessIds is list
+        && request.resource.data.businessIds.size() <= 50
+        && isUpdateAudit();
+    }
+
+    // Invitaciones: el invitado las busca con una consulta collectionGroup por su email verificado.
+    match /{path=**}/invitations/{email} {
+      allow read: if verifiedEmail() && resource.data.email == request.auth.token.email;
+    }
+
+    // ---------- businesses/{bid} ----------
+
+    function businessTypes() {
+      return ['store', 'cafe', 'restaurant', 'other'];
+    }
+
+    function currencies() {
+      return ['COP', 'USD', 'MXN', 'PEN', 'CLP', 'EUR'];
+    }
+
+    function businessFields() {
+      return ['name', 'type', 'currency', 'timezone', 'ownerUid', 'plan', 'status'];
+    }
+
+    // Replica businessStatusMachine (src/features/platform/domain/platformBusiness.ts).
+    function validBusinessStatusTransition(from, to) {
+      return from == to
+        || (from == 'active' && to in ['blocked', 'deleted'])
+        || (from == 'blocked' && to in ['active', 'deleted'])
+        || (from == 'deleted' && to == 'active');
+    }
+
+    // El super admin lee todo lo de cualquier negocio (soporte y conteos de uso), pero no lo escribe.
+    match /businesses/{bid}/{document=**} {
+      allow read: if isPlatformAdmin();
+    }
+
+    match /businesses/{bid} {
+      allow read: if isActiveMember(bid);
+      // Creado por la plataforma: sin dueño hasta que el invitado acepte (ver invitations).
+      allow create: if isPlatformAdmin()
+        && hasExactly(businessFields())
+        && request.resource.data.ownerUid == null
+        && request.resource.data.plan in ['free', 'premium']
+        && request.resource.data.status == 'active'
+        && isText(request.resource.data.name, 2, 80)
+        && request.resource.data.type in businessTypes()
+        && request.resource.data.currency in currencies()
+        && isText(request.resource.data.timezone, 3, 64)
+        && isNewAudit();
+      // Plan y estado solo los cambia la plataforma; un negocio no se borra físicamente.
+      allow update: if isPlatformAdmin()
+        && onlyChanges(['name', 'timezone', 'plan', 'status'])
+        && isText(request.resource.data.name, 2, 80)
+        && isText(request.resource.data.timezone, 3, 64)
+        && request.resource.data.plan in ['free', 'premium']
+        && validBusinessStatusTransition(resource.data.get('status', 'active'), request.resource.data.status)
+        && isUpdateAudit();
+      // Onboarding: el negocio nace en plan gratuito y activo.
+      allow create: if signedIn()
+        && hasExactly(businessFields())
+        && request.resource.data.ownerUid == uid()
+        && request.resource.data.plan == 'free'
+        && request.resource.data.status == 'active'
+        && isText(request.resource.data.name, 2, 80)
+        && request.resource.data.type in businessTypes()
+        && request.resource.data.currency in currencies()
+        && isText(request.resource.data.timezone, 3, 64)
+        && isNewAudit()
+        // El negocio nace con su miembro admin en el mismo batch.
+        && getAfter(/databases/$(database)/documents/businesses/$(bid)/members/$(uid())).data.role == 'admin';
+      // La moneda y el tipo son inmutables (ADR 0005).
+      allow update: if hasPermission(bid, 'settings.manage')
+        && onlyChanges(['name', 'timezone'])
+        && isText(request.resource.data.name, 2, 80)
+        && isText(request.resource.data.timezone, 3, 64)
+        && isUpdateAudit();
+
+      // ----- members/{memberUid} -----
+
+      function validMemberAccess(d) {
+        return d.role in ['admin', 'employee']
+          && d.extraPermissions is list
+          && d.extraPermissions.hasOnly(adminPermissions())
+          && d.status in ['active', 'disabled'];
+      }
+
+      function invitationFor(email) {
+        return get(/databases/$(database)/documents/businesses/$(bid)/invitations/$(email)).data;
+      }
+
+      match /members/{memberUid} {
+        allow read: if isMember(bid);
+        allow create: if signedIn() && memberUid == uid()
+          && hasExactly(['displayName', 'email', 'role', 'extraPermissions', 'status'])
+          && isText(request.resource.data.displayName, 1, 80)
+          && request.resource.data.email == request.auth.token.email
+          && validMemberAccess(request.resource.data)
+          && request.resource.data.status == 'active'
+          && isNewAudit()
+          && (
+            // 1) Dueño que crea el negocio: queda como admin.
+            (isBootstrapping(bid)
+              && request.resource.data.role == 'admin'
+              && request.resource.data.extraPermissions.size() == 0)
+            // 2) Invitado con email verificado: recibe exactamente el rol de la invitación.
+            || (verifiedEmail()
+              && exists(/databases/$(database)/documents/businesses/$(bid)/invitations/$(request.auth.token.email))
+              && request.resource.data.role == invitationFor(request.auth.token.email).role
+              && request.resource.data.extraPermissions == invitationFor(request.auth.token.email).extraPermissions)
+          );
+        // Nadie cambia su propio acceso, y el dueño no puede perder el suyo.
+        allow update: if hasPermission(bid, 'users.manage')
+          && memberUid != uid()
+          && memberUid != get(businessPath(bid)).data.ownerUid
+          && onlyChanges(['role', 'extraPermissions', 'status'])
+          && validMemberAccess(request.resource.data)
+          && isUpdateAudit();
+      }
+
+      // ----- invitations/{email} -----
+
+      match /invitations/{email} {
+        allow read: if hasPermission(bid, 'users.manage')
+          || (verifiedEmail() && resource.data.email == request.auth.token.email);
+        allow create, update: if (hasPermission(bid, 'users.manage') || isPlatformAdmin())
+          && hasExactly(['email', 'role', 'extraPermissions', 'businessId', 'businessName'])
+          && request.resource.data.email == email
+          && request.resource.data.businessId == bid
+          && isText(request.resource.data.businessName, 1, 80)
+          && request.resource.data.role in ['admin', 'employee']
+          && request.resource.data.extraPermissions is list
+          && request.resource.data.extraPermissions.hasOnly(adminPermissions())
+          && (resource == null ? isNewAudit() : isUpdateAudit());
+        allow delete: if hasPermission(bid, 'users.manage')
+          || (verifiedEmail() && resource.data.email == request.auth.token.email);
+      }
+
+      // ----- settings/{docId} -----
+
+      function validSettings(docId, d) {
+        return (docId == 'modules'
+            && hasExactly(['restaurant', 'customers'])
+            && d.restaurant is bool && d.customers is bool)
+          || (docId == 'taxes'
+            && hasExactly(['pricesIncludeTax', 'defaultRateBps', 'rates'])
+            && d.pricesIncludeTax is bool && isRate(d.defaultRateBps)
+            && d.rates is list && d.rates.size() <= 20)
+          || (docId == 'paymentMethods'
+            && hasExactly(['enabled'])
+            && d.enabled is list && d.enabled.size() >= 1
+            && d.enabled.hasOnly(['cash', 'card', 'transfer', 'wallet', 'other']));
+      }
+
+      match /settings/{docId} {
+        allow read: if isMember(bid);
+        allow create: if (isBootstrapping(bid) || hasPermission(bid, 'settings.manage') || isPlatformAdmin())
+          && validSettings(docId, request.resource.data)
+          && isNewAudit();
+        allow update: if hasPermission(bid, 'settings.manage')
+          && validSettings(docId, request.resource.data)
+          && isUpdateAudit();
+      }
+
+      // ----- products/{productId} -----
+
+      function productEditable() {
+        return ['name', 'sku', 'barcode', 'categoryId', 'priceMinor', 'costMinor', 'taxRateBps', 'trackStock', 'lowStockThreshold', 'active', 'imageUrl'];
+      }
+
+      function validProduct(d) {
+        return isText(d.name, 1, 120)
+          && isOptionalText(d.sku, 40)
+          && isOptionalText(d.barcode, 64)
+          && isOptionalId(d.categoryId)
+          && isMoney(d.priceMinor)
+          && isOptionalMoney(d.costMinor)
+          && isRate(d.taxRateBps)
+          && d.trackStock is bool
+          && d.lowStockThreshold is number && d.lowStockThreshold >= 0
+          && d.active is bool
+          && d.stock is number
+          && isOptionalText(d.imageUrl, 2048);
+      }
+
+      match /products/{productId} {
+        allow read: if isMember(bid);
+        allow create: if hasPermission(bid, 'catalog.manage')
+          && hasExactly(productEditable().concat(['stock']))
+          && validProduct(request.resource.data)
+          && isNewAudit();
+        allow update: if isUpdateAudit() && (
+          // Edición del catálogo: no toca el stock.
+          (hasPermission(bid, 'catalog.manage')
+            && onlyChanges(productEditable())
+            && validProduct(request.resource.data))
+          // Ajuste de inventario: solo el stock.
+          || (hasPermission(bid, 'inventory.adjust')
+            && onlyChanges(['stock'])
+            && request.resource.data.stock is number)
+          // Venta (writeBatch + increment, L1): solo puede descontar.
+          || (hasPermission(bid, 'sales.create')
+            && onlyChanges(['stock'])
+            && request.resource.data.stock < resource.data.stock)
+        );
+      }
+
+      // ----- categories/{categoryId} -----
+
+      match /categories/{categoryId} {
+        allow read: if isMember(bid);
+        allow create, update: if hasPermission(bid, 'catalog.manage')
+          && hasExactly(['name', 'color', 'sortOrder'])
+          && isText(request.resource.data.name, 1, 40)
+          && request.resource.data.color in ['primary', 'success', 'warning', 'danger', 'info', 'neutral']
+          && request.resource.data.sortOrder is int && request.resource.data.sortOrder >= 0
+          && (resource == null ? isNewAudit() : isUpdateAudit());
+        allow delete: if hasPermission(bid, 'catalog.manage');
+      }
+
+      // ----- inventoryMovements/{id}: bitácora inmutable -----
+
+      match /inventoryMovements/{movementId} {
+        allow read: if hasPermission(bid, 'inventory.view');
+        allow create: if hasExactly(['productId', 'type', 'quantityDelta', 'reason', 'saleId'])
+          && isText(request.resource.data.productId, 1, 128)
+          && request.resource.data.quantityDelta is number
+          && isOptionalText(request.resource.data.reason, 200)
+          && isOptionalId(request.resource.data.saleId)
+          && isNewAudit()
+          && (
+            (request.resource.data.type in ['adjustment', 'purchase'] && hasPermission(bid, 'inventory.adjust'))
+            || (request.resource.data.type == 'sale' && hasPermission(bid, 'sales.create'))
+            || (request.resource.data.type == 'void' && hasPermission(bid, 'sales.void'))
+          );
+      }
+
+      // ----- suppliers/{id} -----
+
+      match /suppliers/{supplierId} {
+        allow read: if hasPermission(bid, 'inventory.view');
+        allow create, update: if hasPermission(bid, 'inventory.adjust')
+          && hasExactly(['name', 'phone', 'email'])
+          && isText(request.resource.data.name, 1, 120)
+          && isOptionalText(request.resource.data.phone, 30)
+          && isOptionalText(request.resource.data.email, 254)
+          && (resource == null ? isNewAudit() : isUpdateAudit());
+      }
+
+      // ----- customers/{id}: módulo activable -----
+
+      match /customers/{customerId} {
+        allow read: if hasPermission(bid, 'customers.view') && moduleActive(bid, 'customers');
+        allow create, update: if hasPermission(bid, 'customers.manage')
+          && moduleActive(bid, 'customers')
+          && hasExactly(['name', 'documentId', 'phone', 'email', 'notes'])
+          && isText(request.resource.data.name, 2, 120)
+          && isOptionalText(request.resource.data.documentId, 20)
+          && isOptionalText(request.resource.data.phone, 30)
+          && isOptionalText(request.resource.data.email, 254)
+          && isOptionalText(request.resource.data.notes, 500)
+          && (resource == null ? isNewAudit() : isUpdateAudit());
+      }
+
+      // ----- cashShifts/{shiftId}: máquina de estados en el servidor (L8) -----
+
+      function shiftFields() {
+        return ['status', 'deviceCode', 'openedBy', 'openedAt', 'openingFloatMinor', 'closedBy', 'closedAt', 'countedCashMinor', 'expectedCashMinor', 'notes'];
+      }
+
+      function validShiftTransition(from, to) {
+        return (from == 'open' && to == 'closing')
+          || (from == 'closing' && to in ['open', 'closed']);
+      }
+
+      match /cashShifts/{shiftId} {
+        allow read: if hasPermission(bid, 'cash.open') || hasPermission(bid, 'reports.view');
+        allow create: if hasPermission(bid, 'cash.open')
+          && hasExactly(shiftFields())
+          && request.resource.data.status == 'open'
+          && request.resource.data.openedBy == uid()
+          && request.resource.data.openedAt == request.time
+          && isMoney(request.resource.data.openingFloatMinor)
+          && isText(request.resource.data.deviceCode, 2, 6)
+          && request.resource.data.closedBy == null
+          && request.resource.data.closedAt == null
+          && request.resource.data.countedCashMinor == null
+          && request.resource.data.expectedCashMinor == null
+          && isNewAudit();
+        allow update: if hasPermission(bid, 'cash.close')
+          && onlyChanges(['status', 'closedBy', 'closedAt', 'countedCashMinor', 'expectedCashMinor', 'notes'])
+          && validShiftTransition(resource.data.status, request.resource.data.status)
+          && isOptionalMoney(request.resource.data.countedCashMinor)
+          && isOptionalMoney(request.resource.data.expectedCashMinor)
+          && isOptionalText(request.resource.data.notes, 500)
+          && (request.resource.data.status != 'closed'
+            || (request.resource.data.closedBy == uid() && request.resource.data.closedAt == request.time))
+          && isUpdateAudit();
+
+        match /expenses/{expenseId} {
+          allow read: if hasPermission(bid, 'cash.open');
+          allow create: if hasPermission(bid, 'cash.open')
+            && get(/databases/$(database)/documents/businesses/$(bid)/cashShifts/$(shiftId)).data.status == 'open'
+            && hasExactly(['amountMinor', 'description'])
+            && isMoney(request.resource.data.amountMinor) && request.resource.data.amountMinor > 0
+            && isText(request.resource.data.description, 1, 200)
+            && isNewAudit();
+        }
+      }
+
+      // ----- sales/{saleId}: solo inserción, inmutable (L6) -----
+
+      function saleFields() {
+        return ['type', 'number', 'deviceCode', 'lines', 'subtotalMinor', 'discountMinor', 'taxMinor', 'totalMinor', 'payments', 'changeMinor', 'customerId', 'cashShiftId', 'voidedSaleId', 'voidReason', 'occurredAt'];
+      }
+
+      function validSale(d) {
+        return d.type in ['sale', 'void']
+          && isText(d.number, 3, 40)
+          && isText(d.deviceCode, 2, 6)
+          && d.lines is list && d.lines.size() >= 1 && d.lines.size() <= 200
+          && isMoney(d.subtotalMinor) && isMoney(d.discountMinor) && isMoney(d.taxMinor) && isMoney(d.totalMinor)
+          // Invariante de calculateTotals: total = base + impuestos.
+          && d.totalMinor == d.subtotalMinor + d.taxMinor
+          && d.payments is list && d.payments.size() <= 10
+          && isMoney(d.changeMinor)
+          && isOptionalId(d.customerId)
+          && isOptionalId(d.cashShiftId)
+          && d.occurredAt is timestamp
+          && d.occurredAt <= request.time + duration.value(5, 'm')
+          && (d.type == 'sale'
+            ? (d.voidedSaleId == null && d.voidReason == null)
+            : (isText(d.voidedSaleId, 1, 128) && isText(d.voidReason, 1, 200)
+              && get(/databases/$(database)/documents/businesses/$(bid)/sales/$(d.voidedSaleId)).data.type == 'sale'));
+      }
+
+      match /sales/{saleId} {
+        allow read: if hasPermission(bid, 'sales.view');
+        allow create: if hasPermission(bid, request.resource.data.type == 'void' ? 'sales.void' : 'sales.create')
+          && hasExactly(saleFields())
+          && validSale(request.resource.data)
+          && isNewAudit();
+        // Sin update ni delete: las ventas no se editan (anular = nuevo documento `void`).
+      }
+
+      // ----- Módulo restaurante (activable) -----
+
+      match /restaurantZones/{zoneId} {
+        allow read: if isMember(bid) && moduleActive(bid, 'restaurant');
+        allow create, update: if hasPermission(bid, 'settings.manage')
+          && moduleActive(bid, 'restaurant')
+          && hasExactly(['name', 'sortOrder'])
+          && isText(request.resource.data.name, 1, 40)
+          && request.resource.data.sortOrder is int
+          && (resource == null ? isNewAudit() : isUpdateAudit());
+        allow delete: if hasPermission(bid, 'settings.manage');
+      }
+
+      match /restaurantTables/{tableId} {
+        allow read: if isMember(bid) && moduleActive(bid, 'restaurant');
+        allow create: if hasPermission(bid, 'settings.manage')
+          && moduleActive(bid, 'restaurant')
+          && hasExactly(['name', 'zoneId', 'seats', 'status'])
+          && isText(request.resource.data.name, 1, 20)
+          && isText(request.resource.data.zoneId, 1, 128)
+          && request.resource.data.seats is int && request.resource.data.seats >= 1
+          && request.resource.data.status == 'free'
+          && isNewAudit();
+        // Quien vende puede cambiar el estado de la mesa; la configuración es de settings.manage.
+        allow update: if moduleActive(bid, 'restaurant') && isUpdateAudit() && (
+          (hasPermission(bid, 'sales.create')
+            && onlyChanges(['status'])
+            && request.resource.data.status in ['free', 'occupied', 'reserved'])
+          || (hasPermission(bid, 'settings.manage')
+            && onlyChanges(['name', 'zoneId', 'seats']))
+        );
+        allow delete: if hasPermission(bid, 'settings.manage');
+      }
+    }
+  }
+}

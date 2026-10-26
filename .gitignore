@@ -1,0 +1,34 @@
+# Dependencias y builds
+node_modules/
+dist/
+dev-dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Configuración local y secretos (L4, L13)
+.env
+.env.*
+!.env.example
+*.local
+
+# Datos locales de emuladores y Firebase (L13: nunca empaquetar datos reales)
+.firebase/
+emulator-data/
+firebase-export-*/
+*-debug.log
+ui-debug.log
+firestore-debug.log
+database-debug.log
+pubsub-debug.log
+storage-debug.log
+
+# Credenciales de servicio
+service-account*.json
+*-adminsdk-*.json
+
+# Editor / SO
+.DS_Store
+.idea/
+*.swp

@@ -1,0 +1,129 @@
+/*
+ * Tokens de diseño (docs/design-system/tokens.md).
+ * Fuente única de color, tipografía, espaciado, radios, sombras, movimiento y capas.
+ * Tailwind los consume vía @theme en src/app/styles/global.css.
+ */
+:root {
+  color-scheme: light;
+
+  /* Neutros */
+  --sp-color-bg: #f8fafc;
+  --sp-color-surface: #ffffff;
+  --sp-color-surface-muted: #f1f5f9;
+  --sp-color-border: #e2e8f0;
+  --sp-color-border-strong: #cbd5e1;
+  --sp-color-text: #0f172a;
+  --sp-color-text-muted: #475569;
+  --sp-color-text-subtle: #64748b;
+
+  /* Primario */
+  --sp-color-primary: #4338ca;
+  --sp-color-primary-hover: #3730a3;
+  --sp-color-primary-fg: #ffffff;
+  --sp-color-primary-soft: #eef2ff;
+  --sp-color-primary-soft-fg: #3730a3;
+
+  /* Semánticos */
+  --sp-color-success: #15803d;
+  --sp-color-success-soft: #dcfce7;
+  --sp-color-success-soft-fg: #166534;
+  --sp-color-warning: #b45309;
+  --sp-color-warning-soft: #fef3c7;
+  --sp-color-warning-soft-fg: #92400e;
+  --sp-color-danger: #b91c1c;
+  --sp-color-danger-hover: #991b1b;
+  --sp-color-danger-fg: #ffffff;
+  --sp-color-danger-soft: #fee2e2;
+  --sp-color-danger-soft-fg: #991b1b;
+  --sp-color-info: #0369a1;
+  --sp-color-info-soft: #e0f2fe;
+  --sp-color-info-soft-fg: #075985;
+
+  --sp-color-focus: #6366f1;
+  /* Serie única de gráficos (validada con el validador de paletas: banda de luminosidad y contraste). */
+  --sp-color-chart-1: #4338ca;
+  --sp-color-overlay: rgb(15 23 42 / 0.5);
+
+  /* Tipografía: una familia, 6 tamaños */
+  --sp-font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --sp-text-xs: 0.75rem;
+  --sp-text-sm: 0.875rem;
+  --sp-text-base: 1rem;
+  --sp-text-lg: 1.125rem;
+  --sp-text-xl: 1.5rem;
+  --sp-text-2xl: 2rem;
+
+  /* Espaciado: escala de 4 px */
+  --sp-space: 0.25rem;
+
+  /* Radios */
+  --sp-radius-sm: 0.375rem;
+  --sp-radius-md: 0.625rem;
+  --sp-radius-lg: 0.875rem;
+  --sp-radius-full: 9999px;
+
+  /* Sombras: 3 niveles */
+  --sp-shadow-sm: 0 1px 2px rgb(15 23 42 / 0.06);
+  --sp-shadow-md: 0 4px 12px rgb(15 23 42 / 0.08);
+  --sp-shadow-lg: 0 16px 40px rgb(15 23 42 / 0.16);
+
+  /* Movimiento */
+  --sp-duration-fast: 120ms;
+  --sp-duration-base: 200ms;
+  --sp-duration-slow: 320ms;
+
+  /* Capas */
+  --sp-z-sticky: 20;
+  --sp-z-dropdown: 30;
+  --sp-z-overlay: 40;
+  --sp-z-modal: 50;
+  --sp-z-toast: 60;
+
+  /* Tamaño táctil mínimo (WCAG 2.5.8 / guía interna: 44 px) */
+  --sp-touch-target: 2.75rem;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --sp-color-bg: #0b1120;
+  --sp-color-surface: #111827;
+  --sp-color-surface-muted: #1e293b;
+  --sp-color-border: #1f2a3d;
+  --sp-color-border-strong: #334155;
+  --sp-color-text: #f1f5f9;
+  --sp-color-text-muted: #cbd5e1;
+  --sp-color-text-subtle: #94a3b8;
+  --sp-color-primary: #818cf8;
+  --sp-color-primary-hover: #a5b4fc;
+  --sp-color-primary-fg: #0b1120;
+  --sp-color-primary-soft: #1e1b4b;
+  --sp-color-primary-soft-fg: #c7d2fe;
+  --sp-color-success: #4ade80;
+  --sp-color-success-soft: #052e16;
+  --sp-color-success-soft-fg: #bbf7d0;
+  --sp-color-warning: #fbbf24;
+  --sp-color-warning-soft: #422006;
+  --sp-color-warning-soft-fg: #fde68a;
+  --sp-color-danger: #f87171;
+  --sp-color-danger-hover: #fca5a5;
+  --sp-color-danger-fg: #0b1120;
+  --sp-color-danger-soft: #450a0a;
+  --sp-color-danger-soft-fg: #fecaca;
+  --sp-color-info: #38bdf8;
+  --sp-color-info-soft: #082f49;
+  --sp-color-info-soft-fg: #bae6fd;
+  --sp-color-focus: #a5b4fc;
+  --sp-color-chart-1: #7c83f5;
+  --sp-color-overlay: rgb(2 6 23 / 0.7);
+  --sp-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --sp-shadow-md: 0 4px 12px rgb(0 0 0 / 0.45);
+  --sp-shadow-lg: 0 16px 40px rgb(0 0 0 / 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sp-duration-fast: 0ms;
+    --sp-duration-base: 0ms;
+    --sp-duration-slow: 0ms;
+  }
+}

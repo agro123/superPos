@@ -1,0 +1,9 @@
+dist
+coverage
+node_modules
+pnpm-lock.yaml
+dev-dist
+playwright-report
+test-results
+first-prompt.md
+*.log

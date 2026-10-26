@@ -1,0 +1,60 @@
+---
+title: Primeros pasos
+status: accepted
+owner: equipo frontend
+updated: 2026-10-25
+related: [testing.md, ../architecture/overview.md]
+---
+
+# Primeros pasos
+
+## Requisitos
+
+- Node **24** (`.nvmrc`) y pnpm **11** (`corepack enable`).
+- Java **21+** para el Firebase Emulator Suite (`firebase-tools` viene como devDependency).
+
+## Arranque local
+
+```bash
+pnpm install
+cp .env.example .env.local      # proyecto demo-superpos + emuladores
+pnpm emulators                  # terminal 1: Auth 9099, Firestore 8080, Storage 9199, UI 4000
+pnpm seed                       # terminal 2: 2 negocios de ejemplo
+pnpm dev                        # http://localhost:5173
+```
+
+Usuarios del seed (contraseña `superpos123`, **solo existen en el emulador**):
+
+| Email                    | Acceso                                                                            |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| `rosa@superpos.test`     | Admin de _Minimercado Doña Rosa_                                                  |
+| `carlos@superpos.test`   | Empleado del minimercado                                                          |
+| `ana@superpos.test`      | Admin de _Café La Esquina_ y empleada del minimercado (ve el selector de negocio) |
+| `luis@superpos.test`     | Empleado de la cafetería                                                          |
+| `invitado@superpos.test` | Sin negocio; tiene una invitación pendiente al minimercado                        |
+
+## Comandos
+
+| Comando                                        | Qué hace                                                            |
+| ---------------------------------------------- | ------------------------------------------------------------------- |
+| `pnpm dev` / `pnpm build` / `pnpm preview`     | Desarrollo, build de producción, servir el build (4173)             |
+| `pnpm typecheck` / `pnpm lint` / `pnpm format` | Tipos, ESLint estricto, Prettier                                    |
+| `pnpm test` / `pnpm test:coverage`             | Unitarias y de componentes (Vitest)                                 |
+| `pnpm test:rules`                              | Security Rules contra el emulador (lo levanta solo)                 |
+| `pnpm test:e2e`                                | Playwright contra el build + emuladores sembrados (lo levanta solo) |
+| `pnpm check`                                   | Todo lo anterior en secuencia (lo que corre la CI)                  |
+
+> `test:rules` y `test:e2e` usan `firebase emulators:exec`: detén `pnpm emulators` antes de
+> ejecutarlos o habrá conflicto de puertos. Playwright necesita `pnpm exec playwright install chromium` una vez.
+
+## Probar sin conexión
+
+1. `pnpm build && pnpm preview` (el Service Worker no se registra en `pnpm dev`).
+2. Entra, navega por POS y Ventas, y en DevTools → Network marca **Offline**.
+3. Recarga: la app abre, el indicador muestra "Sin conexión" y el POS sigue funcionando.
+
+## Producción
+
+Crea un proyecto Firebase real, copia su config web a `.env.local` con `VITE_USE_EMULATORS=false`,
+configura App Check (`VITE_APP_CHECK_SITE_KEY`) y despliega con
+`firebase deploy --only hosting,firestore,storage`.
