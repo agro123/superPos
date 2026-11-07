@@ -1,4 +1,4 @@
-import { Building2, CreditCard, Percent, Puzzle, Users } from 'lucide-react';
+import { Building2, CreditCard, MonitorSmartphone, Percent, Puzzle, Users } from 'lucide-react';
 import { Outlet } from 'react-router';
 import { usePermission } from '@/features/users';
 import { t } from '@/shared/lib/i18n';
@@ -12,7 +12,14 @@ export default function SettingsLayoutPage() {
     { to: '/settings/taxes', label: t('settings.taxes'), icon: <Percent /> },
     { to: '/settings/payments', label: t('settings.payments'), icon: <CreditCard /> },
     ...(canManageUsers
-      ? [{ to: '/settings/employees', label: t('settings.employees'), icon: <Users /> }]
+      ? [
+          { to: '/settings/employees', label: t('settings.employees'), icon: <Users /> },
+          {
+            to: '/settings/terminals',
+            label: t('terminals.title'),
+            icon: <MonitorSmartphone />,
+          },
+        ]
       : []),
   ];
   return (

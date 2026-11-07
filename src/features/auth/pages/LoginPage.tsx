@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useLocation } from 'react-router';
+import { Navigate, useLocation, Link } from 'react-router';
 import { useOnlineStatus } from '@/shared/hooks/useSyncSummary';
 import { t } from '@/shared/lib/i18n';
 import { AuthLayout, Button, Logo, Tabs, Text } from '@/shared/ui';
@@ -65,6 +65,12 @@ export default function LoginPage() {
           >
             {t('auth.reset.link')}
           </Button>
+          <Link
+            to="/terminal"
+            className="text-center text-sm font-medium text-primary hover:underline"
+          >
+            {t('terminal.useAsTerminal')}
+          </Link>
         </>
       )}
     </AuthLayout>

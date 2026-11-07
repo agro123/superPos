@@ -11,6 +11,7 @@ const base = {
   id: 's1',
   deviceCode: 'CAJA1',
   cashShiftId: 'shift1',
+  terminalId: 'term1',
   lines,
   totals: calculateTotals(toTotalsLines(lines), { pricesIncludeTax: true }),
   occurredAt: new Date('2026-10-26T12:00:00Z'),

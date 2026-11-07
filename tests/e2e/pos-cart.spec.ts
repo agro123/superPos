@@ -1,8 +1,20 @@
 import { expect, test } from '@playwright/test';
-import { ADMIN, EMPLOYEE, login, openCash } from './helpers';
+import {
+  ADMIN,
+  EMPLOYEE,
+  EMPLOYEE_NAME,
+  login,
+  openCash,
+  pairTerminal,
+  workerLogin,
+} from './helpers';
 
-test('login → POS → agregar al carrito → recargar → el carrito persiste', async ({ page }) => {
-  await login(page, EMPLOYEE);
+test('terminal → login del trabajador → POS → recargar → el carrito persiste', async ({
+  page,
+  browser,
+}) => {
+  await pairTerminal(page, browser);
+  await workerLogin(page, EMPLOYEE_NAME);
 
   // El empleado vende, pero no ve la gestión del catálogo.
   const nav = page.getByRole('navigation', { name: 'Navegación principal' });
@@ -28,8 +40,9 @@ test('login → POS → agregar al carrito → recargar → el carrito persiste'
   await expect(cart.getByRole('button', { name: 'Cobrar $ 10.900' })).toBeVisible();
 });
 
-test('órdenes simultáneas y productos agotados', async ({ page }) => {
-  await login(page, EMPLOYEE);
+test('órdenes simultáneas y productos agotados', async ({ page, browser }) => {
+  await pairTerminal(page, browser);
+  await workerLogin(page, EMPLOYEE_NAME);
   await openCash(page);
   await page.getByRole('link', { name: 'Vender' }).first().click();
 
@@ -77,6 +90,26 @@ test('abrir caja → vender en efectivo y tarjeta → resumen y cierre', async (
   await expect(dialog.getByText('La caja cuadra')).toBeVisible();
   await dialog.getByRole('button', { name: 'Cerrar caja' }).click();
   await expect(page.getByText('La caja está cerrada')).toBeVisible();
+});
+
+test('un empleado fuera de un terminal no vende; cambiar de trabajador cierra la sesión', async ({
+  page,
+  browser,
+}) => {
+  await login(page, EMPLOYEE);
+  await page.goto('/pos');
+  await expect(page.getByText('Este dispositivo no es un terminal autorizado')).toBeVisible();
+
+  const terminal = await browser.newPage();
+  await pairTerminal(terminal, browser);
+  await workerLogin(terminal, EMPLOYEE_NAME);
+  await terminal
+    .getByRole('button', { name: /Carlos/ })
+    .first()
+    .click();
+  await terminal.getByRole('menuitem', { name: 'Cambiar de trabajador' }).click();
+  await expect(terminal.getByRole('heading', { name: '¿Quién va a trabajar?' })).toBeVisible();
+  await terminal.close();
 });
 
 test('un empleado sin permiso ve "sin acceso" en una ruta protegida', async ({ page }) => {

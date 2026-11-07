@@ -1,8 +1,13 @@
-import { ArrowLeftRight, Lock, LogOut, Moon, ShieldCheck } from 'lucide-react';
+import { ArrowLeftRight, Lock, LogOut, Moon, ShieldCheck, UserRoundCog } from 'lucide-react';
 import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
 import { useCurrentUser, useSignOut } from '@/features/auth';
 import { useActiveBusiness } from '@/features/business';
+import {
+  useEndWorkerSession,
+  useTerminalSessionGuard,
+  useWorkerSession,
+} from '@/features/terminals';
 import { hasPermission, useCurrentMember } from '@/features/users';
 import { useOnlineStatus, useSyncSummary } from '@/shared/hooks/useSyncSummary';
 import { t } from '@/shared/lib/i18n';
@@ -22,6 +27,9 @@ export function RootLayout() {
   const signOut = useSignOut();
   const { theme, cycle } = useThemeStore();
   const [navOpen, setNavOpen] = useState(false);
+  const workerSession = useWorkerSession();
+  const endWorkerSession = useEndWorkerSession();
+  useTerminalSessionGuard();
 
   const visible = (item: NavEntry) =>
     (!item.permission || hasPermission(member, item.permission)) &&
@@ -63,6 +71,16 @@ export function RootLayout() {
             setNavOpen(true);
           }}
           userMenuItems={[
+            ...(workerSession
+              ? [
+                  {
+                    id: 'switch-worker',
+                    label: t('terminal.switchWorker'),
+                    icon: <UserRoundCog />,
+                    onSelect: () => void endWorkerSession(),
+                  },
+                ]
+              : []),
             {
               id: 'lock',
               label: t('user.lock'),
@@ -96,7 +114,12 @@ export function RootLayout() {
               label: t('user.logout'),
               icon: <LogOut />,
               tone: 'danger',
+              // En un terminal, salir también cierra la sesión de trabajo y vuelve a la selección.
               onSelect: () => {
+                if (workerSession) {
+                  void endWorkerSession();
+                  return;
+                }
                 signOut.mutate(undefined, {
                   onSuccess: () => void navigate('/login', { replace: true }),
                 });

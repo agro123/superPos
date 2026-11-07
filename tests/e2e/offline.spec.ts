@@ -1,8 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { EMPLOYEE, login, openCash } from './helpers';
+import { EMPLOYEE_NAME, openCash, pairTerminal, workerLogin } from './helpers';
 
-test('la app abre y navega sin conexión tras la primera visita', async ({ page, context }) => {
-  await login(page, EMPLOYEE);
+test('la app abre y navega sin conexión tras la primera visita', async ({
+  page,
+  context,
+  browser,
+}) => {
+  await pairTerminal(page, browser);
+  await workerLogin(page, EMPLOYEE_NAME);
 
   // Primera visita en línea: el Service Worker precachea el app shell y Firestore guarda la caché local.
   await page.evaluate(async () => {

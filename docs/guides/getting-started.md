@@ -58,3 +58,17 @@ Usuarios del seed (contraseña `superpos123`, **solo existen en el emulador**):
 Crea un proyecto Firebase real, copia su config web a `.env.local` con `VITE_USE_EMULATORS=false`,
 configura App Check (`VITE_APP_CHECK_SITE_KEY`) y despliega con
 `firebase deploy --only hosting,firestore,storage`.
+
+## Proyecto real de Firebase (`superpos-univalle`)
+
+Alias `prod` en `.firebaserc`; Firestore en `southamerica-east1`, plan Spark (sin Storage: las
+imágenes de productos requieren el plan Blaze).
+
+1. Crea `.env.firebase.local` con la config web (`firebase apps:sdkconfig WEB --project prod`) y
+   `VITE_USE_EMULATORS=false`. No se commitea.
+2. Habilita **Authentication → Email/contraseña** en la consola (una sola vez).
+3. `pnpm dev:firebase` (desarrollo contra el proyecto real) · `pnpm build:firebase`.
+4. Reglas e índices: `firebase deploy --only firestore --project prod`.
+   Publicar: `pnpm deploy:firebase` (hosting + Firestore).
+
+`pnpm seed` y las pruebas siguen apuntando solo a los emuladores.

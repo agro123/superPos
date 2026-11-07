@@ -1,9 +1,11 @@
-import { Wallet } from 'lucide-react';
+import { MonitorSmartphone, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useCurrentUser } from '@/features/auth';
 import { useActiveBusiness } from '@/features/business';
 import { useCurrentShift } from '@/features/cash';
+import { useWorkerSession } from '@/features/terminals';
+import { useCurrentMember } from '@/features/users';
 import { findByBarcode, useCategories, useProducts, type Product } from '@/features/catalog';
 import { useBarcodeScanner } from '@/shared/hooks/useBarcodeScanner';
 import { useHotkey } from '@/shared/hooks/useHotkey';
@@ -37,10 +39,15 @@ export default function PosPage() {
   const navigate = useNavigate();
   const current = useCurrentShift(business.id);
   const shift = current.shift?.status === 'open' ? current.shift : null;
+  const member = useCurrentMember();
+  const workerSession = useWorkerSession();
+  // Las reglas rechazan ventas de empleados sin un terminal activo; aquí se avisa antes.
+  const needsTerminal = member?.role !== 'admin' && !workerSession;
   const checkout = useCheckout({
     businessId: business.id,
     deviceCode: current.deviceCode,
     cashShiftId: shift?.id ?? '',
+    terminalId: workerSession?.terminalId ?? null,
     uid: user.uid,
     tracksStock: (productId) => products.data?.find((p) => p.id === productId)?.trackStock ?? false,
   });
@@ -94,6 +101,21 @@ export default function PosPage() {
     if (shift && cart.lines.length > 0) goTo('awaiting_payment');
   });
 
+  if (needsTerminal) {
+    return (
+      <div className="p-4 md:p-6">
+        <h1 className="sr-only">{t('pos.title')}</h1>
+        <EmptyState
+          icon={<MonitorSmartphone />}
+          title={t('terminal.notTerminal')}
+          description={t('terminal.notTerminalHint')}
+          action={
+            <Button onClick={() => void navigate('/terminal')}>{t('terminal.goToTerminal')}</Button>
+          }
+        />
+      </div>
+    );
+  }
   if (current.loading) return <Skeleton className="m-4 h-64" />;
   if (!shift) {
     return (

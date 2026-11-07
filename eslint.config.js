@@ -21,6 +21,7 @@ const FEATURES = [
   'customers',
   'reports',
   'settings',
+  'terminals',
   'restaurant',
   'platform',
 ];

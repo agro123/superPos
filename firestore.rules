@@ -60,6 +60,25 @@ service cloud.firestore {
       return get(businessPath(bid)).data.get('status', 'active') == 'active';
     }
 
+    // Terminal POS: identidad anónima de Firebase Auth de la instalación, autorizada por un admin.
+    function isAnonymous() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    function terminalPath(bid, terminalId) {
+      return /databases/$(database)/documents/businesses/$(bid)/posTerminals/$(terminalId);
+    }
+
+    function terminalActive(bid, terminalId) {
+      return exists(terminalPath(bid, terminalId))
+        && get(terminalPath(bid, terminalId)).data.status == 'active';
+    }
+
+    /** El usuario actual es un terminal activo del negocio (solo lee perfiles y el negocio). */
+    function isActiveTerminal(bid) {
+      return isAnonymous() && businessOperational(bid) && terminalActive(bid, uid());
+    }
+
     function isMember(bid) {
       return isActiveMember(bid) && businessOperational(bid);
     }
@@ -184,13 +203,52 @@ service cloud.firestore {
         || (from == 'deleted' && to == 'active');
     }
 
+    // ---------- Vinculación de terminales por QR ----------
+    // El id es sha256(código del QR): solo quien vio el QR puede leer o aprobar la solicitud.
+
+    match /terminalPairingRequests/{requestId} {
+      // Sin list: no se pueden enumerar solicitudes.
+      // Leer una solicitud inexistente devuelve "no existe" (sin datos) al administrador.
+      allow get: if (signedIn() && !isAnonymous())
+        || (resource != null && resource.data.deviceUid == uid());
+      allow create: if isAnonymous()
+        && requestId.matches('^[0-9a-f]{64}$')
+        && request.resource.data.keys().hasOnly(['deviceUid', 'deviceUuid', 'deviceType', 'status', 'businessId', 'approvedBy', 'approvedAt', 'createdAt'])
+        && request.resource.data.keys().hasAll(['deviceUid', 'deviceUuid', 'deviceType', 'status', 'businessId', 'approvedBy', 'approvedAt', 'createdAt'])
+        && request.resource.data.deviceUid == uid()
+        && isText(request.resource.data.deviceUuid, 36, 36)
+        && request.resource.data.deviceType in ['phone', 'tablet', 'desktop', 'unknown']
+        && request.resource.data.status == 'pending'
+        && request.resource.data.businessId == null
+        && request.resource.data.approvedBy == null
+        && request.resource.data.approvedAt == null
+        && request.resource.data.createdAt == request.time;
+      allow update: if resource.data.status == 'pending' && (
+        // Aprobación: admin del negocio elegido, antes de que venza, una sola vez. Debe crear el
+        // terminal en el mismo batch (lo exige la regla de posTerminals).
+        // Vigencia de 5 minutos contada desde la hora del servidor (PAIRING_TTL_MS).
+        (request.time < resource.data.createdAt + duration.value(5, 'm')
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'businessId', 'approvedBy', 'approvedAt'])
+          && request.resource.data.status == 'approved'
+          && request.resource.data.businessId is string
+          && hasPermission(request.resource.data.businessId, 'users.manage')
+          && request.resource.data.approvedBy == uid()
+          && request.resource.data.approvedAt == request.time
+          && existsAfter(terminalPath(request.resource.data.businessId, resource.data.deviceUid)))
+        // El propio dispositivo cancela su solicitud.
+        || (resource.data.deviceUid == uid()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status == 'cancelled')
+      );
+    }
+
     // El super admin lee todo lo de cualquier negocio (soporte y conteos de uso), pero no lo escribe.
     match /businesses/{bid}/{document=**} {
       allow read: if isPlatformAdmin();
     }
 
     match /businesses/{bid} {
-      allow read: if isActiveMember(bid);
+      allow read: if isActiveMember(bid) || isActiveTerminal(bid);
       // Creado por la plataforma: sin dueño hasta que el invitado acepte (ver invitations).
       allow create: if isPlatformAdmin()
         && hasExactly(businessFields())
@@ -244,7 +302,7 @@ service cloud.firestore {
       }
 
       match /members/{memberUid} {
-        allow read: if isMember(bid);
+        allow read: if isMember(bid) || isActiveTerminal(bid);
         allow create: if signedIn() && memberUid == uid()
           && hasExactly(['displayName', 'email', 'role', 'extraPermissions', 'status'])
           && isText(request.resource.data.displayName, 1, 80)
@@ -462,10 +520,103 @@ service cloud.firestore {
         }
       }
 
+      // ----- posTerminals/{terminalUid}: terminales autorizados por un admin -----
+
+      function terminalFields() {
+        return ['deviceUuid', 'deviceType', 'name', 'status', 'idleLockMinutes', 'pairingRequestId', 'registeredBy', 'authorizedAt', 'lastSeenAt', 'revokedAt'];
+      }
+
+      function validIdleMinutes(v) {
+        return v is int && v >= 1 && v <= 120;
+      }
+
+      /** Alta/reactivación: solo junto con la aprobación de su solicitud, en el mismo batch. */
+      function pairedNow(terminalUid) {
+        let d = request.resource.data;
+        let r = getAfter(/databases/$(database)/documents/terminalPairingRequests/$(d.pairingRequestId)).data;
+        return hasPermission(bid, 'users.manage')
+          && r.status == 'approved'
+          && r.businessId == bid
+          && r.approvedBy == uid()
+          && r.approvedAt == request.time
+          && r.deviceUid == terminalUid
+          && r.deviceUuid == d.deviceUuid
+          && r.deviceType == d.deviceType
+          && isText(d.name, 1, 40)
+          && d.status == 'active'
+          && validIdleMinutes(d.idleLockMinutes)
+          && d.registeredBy == uid()
+          && d.authorizedAt == request.time
+          && d.revokedAt == null;
+      }
+
+      function validTerminalTransition(from, to) {
+        return from == to
+          || (from == 'active' && to in ['disabled', 'revoked'])
+          || (from == 'disabled' && to in ['active', 'revoked']);
+      }
+
+      match /posTerminals/{terminalUid} {
+        allow get: if hasPermission(bid, 'users.manage') || (signedIn() && terminalUid == uid())
+          || isMember(bid);
+        allow list: if hasPermission(bid, 'users.manage');
+        allow create: if hasExactly(terminalFields())
+          && pairedNow(terminalUid)
+          && request.resource.data.lastSeenAt == null
+          && isNewAudit();
+        allow update: if isUpdateAudit() && (
+          // Revinculación de un terminal revocado (misma instalación, nueva solicitud).
+          (resource.data.status == 'revoked'
+            && onlyChanges(['deviceType', 'name', 'status', 'idleLockMinutes', 'pairingRequestId', 'registeredBy', 'authorizedAt', 'revokedAt'])
+            && pairedNow(terminalUid))
+          // Administración: nombre, inactividad y estado (revocar es final).
+          || (hasPermission(bid, 'users.manage')
+            && onlyChanges(['name', 'idleLockMinutes', 'status', 'revokedAt'])
+            && isText(request.resource.data.name, 1, 40)
+            && validIdleMinutes(request.resource.data.idleLockMinutes)
+            && validTerminalTransition(resource.data.status, request.resource.data.status)
+            && (request.resource.data.status == 'revoked' && resource.data.status != 'revoked'
+              ? request.resource.data.revokedAt == request.time
+              : request.resource.data.revokedAt == resource.data.revokedAt))
+          // Latido del propio terminal activo.
+          || (terminalUid == uid()
+            && resource.data.status == 'active'
+            && onlyChanges(['lastSeenAt'])
+            && request.resource.data.lastSeenAt == request.time)
+        );
+      }
+
+      // ----- terminalSessions/{id}: sesiones de trabajo (inicio/cierre, trabajador, terminal) -----
+
+      match /terminalSessions/{sessionId} {
+        allow read: if hasPermission(bid, 'users.manage')
+          || (isMember(bid) && resource.data.memberUid == uid());
+        allow create: if isMember(bid)
+          && hasExactly(['terminalId', 'memberUid', 'loginMethod', 'status', 'startedAt', 'endedAt', 'lastActivityAt'])
+          && request.resource.data.memberUid == uid()
+          && request.resource.data.loginMethod == 'password'
+          && request.resource.data.status == 'active'
+          && request.resource.data.startedAt == request.time
+          && request.resource.data.lastActivityAt == request.time
+          && request.resource.data.endedAt == null
+          && isText(request.resource.data.terminalId, 1, 128)
+          && terminalActive(bid, request.resource.data.terminalId)
+          && isNewAudit();
+        // Solo se cierra (una vez): el propio trabajador ("closed") o un admin ("expired").
+        allow update: if isUpdateAudit()
+          && resource.data.status == 'active'
+          && onlyChanges(['status', 'endedAt'])
+          && request.resource.data.endedAt == request.time
+          && (
+            (resource.data.memberUid == uid() && request.resource.data.status == 'closed')
+            || (hasPermission(bid, 'users.manage') && request.resource.data.status == 'expired')
+          );
+      }
+
       // ----- sales/{saleId}: solo inserción, inmutable (L6) -----
 
       function saleFields() {
-        return ['type', 'number', 'deviceCode', 'lines', 'subtotalMinor', 'discountMinor', 'taxMinor', 'totalMinor', 'payments', 'changeMinor', 'customerId', 'cashShiftId', 'voidedSaleId', 'voidReason', 'occurredAt'];
+        return ['type', 'number', 'deviceCode', 'lines', 'subtotalMinor', 'discountMinor', 'taxMinor', 'totalMinor', 'payments', 'changeMinor', 'customerId', 'cashShiftId', 'terminalId', 'voidedSaleId', 'voidReason', 'occurredAt'];
       }
 
       function validSale(d) {
@@ -480,6 +631,10 @@ service cloud.firestore {
           && isMoney(d.changeMinor)
           && isOptionalId(d.customerId)
           && isOptionalId(d.cashShiftId)
+          // Un empleado solo vende desde un terminal activo; el admin también desde su equipo.
+          && (d.terminalId == null
+            ? role(bid) == 'admin'
+            : isText(d.terminalId, 1, 128) && terminalActive(bid, d.terminalId))
           && d.occurredAt is timestamp
           && d.occurredAt <= request.time + duration.value(5, 'm')
           && (d.type == 'sale'

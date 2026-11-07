@@ -63,7 +63,8 @@ async function run<T>(action: () => Promise<T>): Promise<T> {
 }
 
 /** Iniciar sesión requiere red (documentado en docs/architecture/offline-sync.md). */
-export function signIn(input: LoginInput): Promise<void> {
+/** Inicia sesión y devuelve el uid. */
+export function signIn(input: LoginInput): Promise<string> {
   return run(async () => {
     const credential = await signInWithEmailAndPassword(
       getFirebase().auth,
@@ -71,6 +72,7 @@ export function signIn(input: LoginInput): Promise<void> {
       input.password,
     );
     await ensureUserProfile(toSessionUser(credential.user));
+    return credential.user.uid;
   });
 }
 

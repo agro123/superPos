@@ -12,6 +12,7 @@ export interface CheckoutContext {
   businessId: string;
   deviceCode: string;
   cashShiftId: string;
+  terminalId: string | null;
   uid: string;
   tracksStock: (productId: string) => boolean;
 }
@@ -28,6 +29,7 @@ export function useCheckout(context: CheckoutContext) {
       id: saleWriter.newId(context.businessId),
       deviceCode: context.deviceCode,
       cashShiftId: context.cashShiftId,
+      terminalId: context.terminalId,
       lines,
       totals,
       tenders,

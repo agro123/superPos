@@ -27,16 +27,20 @@ export interface FirebaseServices {
 
 let services: FirebaseServices | null = null;
 
-function initialize(): FirebaseServices {
-  const env = readEnv();
-  const app = initializeApp({
+function webConfig(env: ReturnType<typeof readEnv>) {
+  return {
     apiKey: env.VITE_FIREBASE_API_KEY,
     authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
     projectId: env.VITE_FIREBASE_PROJECT_ID,
     storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
     messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     appId: env.VITE_FIREBASE_APP_ID,
-  });
+  };
+}
+
+function initialize(): FirebaseServices {
+  const env = readEnv();
+  const app = initializeApp(webConfig(env));
 
   // App Check antes de usar otros servicios. Desactivado con emuladores o sin clave de sitio.
   if (!env.VITE_USE_EMULATORS && env.VITE_APP_CHECK_SITE_KEY) {
@@ -72,4 +76,33 @@ function initialize(): FirebaseServices {
 export function getFirebase(): FirebaseServices {
   services ??= initialize();
   return services;
+}
+
+export interface TerminalFirebase {
+  auth: Auth;
+  db: Firestore;
+}
+
+let terminalServices: TerminalFirebase | null = null;
+
+/**
+ * Segunda instancia de Firebase para la identidad del terminal POS (sesión anónima de la
+ * instalación). Va aparte para que el login de un trabajador en la instancia principal no la
+ * reemplace. Caché en memoria: el terminal solo lee su estado y la lista de trabajadores.
+ */
+export function getTerminalFirebase(): TerminalFirebase {
+  if (terminalServices) return terminalServices;
+  const env = readEnv();
+  const app = initializeApp(webConfig(env), 'terminal');
+  const auth = initializeAuth(app, {
+    persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+  });
+  const db = initializeFirestore(app, {});
+  if (env.VITE_USE_EMULATORS) {
+    const host = env.VITE_EMULATOR_HOST;
+    connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
+    connectFirestoreEmulator(db, host, 8080);
+  }
+  terminalServices = { auth, db };
+  return terminalServices;
 }

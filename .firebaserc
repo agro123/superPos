@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "demo-superpos"
+    "default": "demo-superpos",
+    "prod": "superpos-univalle"
   }
 }

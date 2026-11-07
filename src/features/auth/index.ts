@@ -10,8 +10,10 @@ export { useLockStore } from './application/sessionStore';
 export {
   useRefreshVerification,
   useResendVerification,
+  useSignIn,
   useSignOut,
 } from './application/useAuthActions';
+export { INITIAL_LOCKOUT, isLocked, registerFailedAttempt, type LockoutState } from './domain/pin';
 export type { SessionStatus, SessionUser } from './domain/session';
 export type { UserProfile } from './domain/userProfile';
 

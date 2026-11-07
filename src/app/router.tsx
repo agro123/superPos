@@ -11,6 +11,7 @@ import { reportsPages } from '@/features/reports';
 import { restaurantPages } from '@/features/restaurant';
 import { salesPages } from '@/features/sales';
 import { settingsPages } from '@/features/settings';
+import { terminalsPages } from '@/features/terminals';
 import type { Permission } from '@/features/users';
 import { RequireAuth } from './guards/RequireAuth';
 import { RequireBusiness } from './guards/RequireBusiness';
@@ -43,6 +44,8 @@ export const routes: RouteObject[] = [
     errorElement: <RouteErrorPage />,
     children: [
       { path: '/login', lazy: page(authPages.login) },
+      // Terminal POS: identidad propia (anónima) de la instalación, fuera de RequireAuth.
+      { path: '/terminal', lazy: page(terminalsPages.terminal) },
       {
         element: <RequireAuth />,
         children: [
@@ -99,6 +102,7 @@ export const routes: RouteObject[] = [
                               { path: 'taxes', lazy: page(settingsPages.taxes) },
                               { path: 'payments', lazy: page(settingsPages.payments) },
                               guarded('employees', 'users.manage', settingsPages.employees),
+                              guarded('terminals', 'users.manage', settingsPages.terminals),
                             ],
                           },
                         ],

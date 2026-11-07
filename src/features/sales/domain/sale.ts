@@ -54,6 +54,8 @@ export const saleSchema = z
     changeMinor: moneySchema,
     customerId: z.string().nullable(),
     cashShiftId: z.string().nullable(),
+    /** Terminal POS desde el que se vendió; `null` solo para un admin en su propio equipo. */
+    terminalId: z.string().nullable(),
     /** Solo en documentos `void`: la venta anulada y el motivo. */
     voidedSaleId: z.string().nullable(),
     voidReason: z.string().max(200).nullable(),

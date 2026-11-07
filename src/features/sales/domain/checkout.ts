@@ -13,6 +13,7 @@ export interface CheckoutInput {
   id: string;
   deviceCode: string;
   cashShiftId: string;
+  terminalId: string | null;
   lines: readonly CartLine[];
   totals: Totals;
   /** Pagos tal como los entregó el cliente; el efectivo puede exceder el total (vuelto). */
@@ -68,6 +69,7 @@ export function buildCheckout(input: CheckoutInput): Result<Checkout> {
       changeMinor: summary.value.change,
       customerId: null,
       cashShiftId: input.cashShiftId,
+      terminalId: input.terminalId,
       voidedSaleId: null,
       voidReason: null,
       occurredAt: input.occurredAt,

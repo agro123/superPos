@@ -26,6 +26,29 @@ export function as(env: RulesTestEnvironment, uid: string, email = `${uid}@examp
   return context.firestore() as unknown as Firestore;
 }
 
+/** Terminal POS: sesión anónima de Firebase Auth de la instalación. */
+export const TERMINAL = 'term1';
+export const REVOKED_TERMINAL = 'term-revoked';
+
+export function asTerminal(env: RulesTestEnvironment, uid: string = TERMINAL): Firestore {
+  const context = env.authenticatedContext(uid, { firebase: { sign_in_provider: 'anonymous' } });
+  return context.firestore() as unknown as Firestore;
+}
+
+export const terminalData = (overrides: Record<string, unknown> = {}) => ({
+  deviceUuid: '0b6f2c1e-6a8e-4c39-9d1a-2f3e4d5c6b7a',
+  deviceType: 'tablet',
+  name: 'Caja principal',
+  status: 'active',
+  idleLockMinutes: 5,
+  pairingRequestId: 'a'.repeat(64),
+  registeredBy: OWNER,
+  authorizedAt: Timestamp.fromMillis(Date.UTC(2026, 0, 1)),
+  lastSeenAt: null,
+  revokedAt: null,
+  ...overrides,
+});
+
 /** Super administrador de la plataforma (custom claim asignado por el Admin SDK). */
 export const PLATFORM_ADMIN = 'soporte';
 
@@ -107,6 +130,7 @@ export const saleData = (overrides: Record<string, unknown> = {}) => ({
   changeMinor: 0,
   customerId: null,
   cashShiftId: null,
+  terminalId: TERMINAL,
   voidedSaleId: null,
   voidReason: null,
   occurredAt: Timestamp.fromMillis(Date.now() - 60_000),
@@ -155,6 +179,11 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
     await setDoc(at('settings/modules'), {
       restaurant: true,
       customers: true,
+      ...pastAudit(OWNER),
+    });
+    await setDoc(at(`posTerminals/${TERMINAL}`), { ...terminalData(), ...pastAudit(OWNER) });
+    await setDoc(at(`posTerminals/${REVOKED_TERMINAL}`), {
+      ...terminalData({ status: 'revoked', revokedAt: Timestamp.fromMillis(Date.UTC(2026, 0, 2)) }),
       ...pastAudit(OWNER),
     });
     await setDoc(at('products/p1'), { ...productData(), ...pastAudit(OWNER) });

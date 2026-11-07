@@ -6,4 +6,5 @@ export const settingsPages = {
   taxes: () => import('./pages/TaxesSettingsPage'),
   payments: () => import('./pages/PaymentsSettingsPage'),
   employees: () => import('./pages/EmployeesSettingsPage'),
+  terminals: () => import('./pages/TerminalsSettingsPage'),
 };
