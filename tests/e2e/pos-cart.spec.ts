@@ -117,3 +117,52 @@ test('un empleado sin permiso ve "sin acceso" en una ruta protegida', async ({ p
   await page.goto('/catalog');
   await expect(page.getByText('No tienes acceso a esta sección')).toBeVisible();
 });
+
+test('cliente con saldo → pago mixto con fiado → anular → cartera en Clientes', async ({
+  page,
+}) => {
+  await login(page, ADMIN);
+  await openCash(page);
+  await page.getByRole('link', { name: 'Vender' }).first().click();
+
+  await page
+    .getByRole('list', { name: 'Productos' })
+    .getByRole('button', { name: /Arroz 500 g/ })
+    .click();
+  const cart = page.getByRole('region', { name: 'Carrito' });
+  await cart.getByRole('button', { name: 'Agregar cliente' }).click();
+  await page
+    .getByRole('dialog', { name: 'Cliente de la venta' })
+    .getByRole('button', { name: /Marta Lucía Ospina/ })
+    .click();
+  // El cajero ve el saldo pendiente del cliente.
+  await expect(cart.getByRole('status').filter({ hasText: 'saldo pendiente' })).toBeVisible();
+
+  await cart.getByRole('button', { name: /Cobrar/ }).click();
+  const sheet = page.getByRole('dialog', { name: 'Cobrar' });
+  const pad = sheet.getByRole('group', { name: /teclado/i });
+  for (const digit of ['2', '0', '0', '0'])
+    await pad.getByRole('button', { name: digit, exact: true }).click();
+  await sheet.getByRole('button', { name: 'Agregar pago' }).click();
+  await sheet.getByRole('radio', { name: 'Fiado' }).click();
+  await sheet.getByRole('button', { name: 'Confirmar cobro' }).click();
+  await expect(page.getByText('Fiado: $ 1.200').first()).toBeVisible();
+
+  await page.getByRole('link', { name: 'Ventas' }).first().click();
+  await page
+    .getByRole('table', { name: 'Historial de ventas' })
+    .getByRole('row')
+    .filter({ hasText: 'Efectivo + Fiado' })
+    .first()
+    .click();
+  await page.getByRole('button', { name: 'Anular venta' }).click();
+  const dialog = page.getByRole('dialog', { name: /Anular la venta/ });
+  await dialog.getByLabel('Motivo de la anulación').fill('Error de prueba');
+  await dialog.getByRole('button', { name: 'Anular venta' }).click();
+  await expect(page.getByText(/Venta .+ anulada/).first()).toBeVisible();
+
+  await page.getByRole('link', { name: 'Clientes' }).first().click();
+  await page.getByText('Solo clientes con saldo pendiente').click();
+  await expect(page.getByRole('cell', { name: /Marta Lucía Ospina/ }).first()).toBeVisible();
+  await expect(page.getByRole('cell', { name: /Jorge Restrepo/ })).toHaveCount(0);
+});

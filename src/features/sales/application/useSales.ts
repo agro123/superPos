@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
 import { voidedSaleIds } from '../domain/sale';
 import { saleReader } from '../infrastructure/saleRepository';
+import { saleWriter } from '../infrastructure/saleWriter';
+import type { NewSale } from '../domain/ports';
+import { buildVoid, type VoidInput } from '../domain/void';
+import { ok, type Result } from '@/shared/domain/result';
 import { useLiveQuery } from '@/shared/hooks/useLiveQuery';
 import { getPlatform, type ReceiptDocument } from '@/shared/infrastructure/platform';
 
@@ -28,4 +32,12 @@ export function useSalesSince(businessId: string, days: number) {
 /** Imprime un ticket a través del adaptador de plataforma (web hoy, Tauri mañana). */
 export function printReceipt(receipt: ReceiptDocument) {
   return getPlatform().printReceipt(receipt);
+}
+
+/** Anula una venta (offline-first): documento `void` y devolución de stock. */
+export function voidSale(businessId: string, input: VoidInput, uid: string): Result<NewSale> {
+  const result = buildVoid(input);
+  if (!result.ok) return result;
+  saleWriter.recordVoid(businessId, result.value.voidSale, result.value.restock, uid);
+  return ok(result.value.voidSale);
 }

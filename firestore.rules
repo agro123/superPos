@@ -414,6 +414,10 @@ service cloud.firestore {
           || (hasPermission(bid, 'sales.create')
             && onlyChanges(['stock'])
             && request.resource.data.stock < resource.data.stock)
+          // Anulación: devuelve unidades al stock.
+          || (hasPermission(bid, 'sales.void')
+            && onlyChanges(['stock'])
+            && request.resource.data.stock > resource.data.stock)
         );
       }
 
@@ -613,10 +617,53 @@ service cloud.firestore {
           );
       }
 
+      // ----- creditPayments/{id}: abonos a cuentas fiadas (inmutables) -----
+
+      match /creditPayments/{paymentId} {
+        allow read: if moduleActive(bid, 'customers')
+          && (hasPermission(bid, 'customers.view') || hasPermission(bid, 'cash.open'));
+        allow create: if hasPermission(bid, 'sales.create')
+          && moduleActive(bid, 'customers')
+          && hasExactly(['customerId', 'amountMinor', 'method', 'cashShiftId', 'occurredAt'])
+          && customerExists(request.resource.data.customerId)
+          && isMoney(request.resource.data.amountMinor) && request.resource.data.amountMinor > 0
+          && request.resource.data.method in ['cash', 'card', 'transfer', 'wallet', 'other']
+          // El abono entra a la caja abierta de quien lo recibe.
+          && isText(request.resource.data.cashShiftId, 1, 128)
+          && get(/databases/$(database)/documents/businesses/$(bid)/cashShifts/$(request.resource.data.cashShiftId)).data.status == 'open'
+          && request.resource.data.occurredAt is timestamp
+          && request.resource.data.occurredAt <= request.time + duration.value(5, 'm')
+          && isNewAudit();
+      }
+
       // ----- sales/{saleId}: solo inserción, inmutable (L6) -----
 
       function saleFields() {
-        return ['type', 'number', 'deviceCode', 'lines', 'subtotalMinor', 'discountMinor', 'taxMinor', 'totalMinor', 'payments', 'changeMinor', 'customerId', 'cashShiftId', 'terminalId', 'voidedSaleId', 'voidReason', 'occurredAt'];
+        return ['type', 'number', 'deviceCode', 'lines', 'subtotalMinor', 'discountMinor', 'taxMinor', 'totalMinor', 'payments', 'changeMinor', 'creditMinor', 'customerId', 'cashShiftId', 'terminalId', 'voidedSaleId', 'voidReason', 'occurredAt'];
+      }
+
+      // Las reglas no recorren listas: se revisan las 10 posiciones posibles de `payments`.
+      function isCreditAt(d, i) {
+        return d.payments.size() > i && d.payments[i].method == 'credit';
+      }
+
+      function hasCreditPayment(d) {
+        return isCreditAt(d, 0) || isCreditAt(d, 1) || isCreditAt(d, 2) || isCreditAt(d, 3)
+          || isCreditAt(d, 4) || isCreditAt(d, 5) || isCreditAt(d, 6) || isCreditAt(d, 7)
+          || isCreditAt(d, 8) || isCreditAt(d, 9);
+      }
+
+      function customerExists(customerId) {
+        return customerId is string
+          && exists(/databases/$(database)/documents/businesses/$(bid)/customers/$(customerId));
+      }
+
+      /** Fiado solo a clientes registrados, con el módulo de clientes activo. */
+      function validCredit(d) {
+        return isMoney(d.creditMinor)
+          && d.creditMinor <= d.totalMinor
+          && hasCreditPayment(d) == (d.creditMinor > 0)
+          && (d.creditMinor == 0 || (customerExists(d.customerId) && moduleActive(bid, 'customers')));
       }
 
       function validSale(d) {
@@ -629,6 +676,7 @@ service cloud.firestore {
           && d.totalMinor == d.subtotalMinor + d.taxMinor
           && d.payments is list && d.payments.size() <= 10
           && isMoney(d.changeMinor)
+          && validCredit(d)
           && isOptionalId(d.customerId)
           && isOptionalId(d.cashShiftId)
           // Un empleado solo vende desde un terminal activo; el admin también desde su equipo.
@@ -646,6 +694,8 @@ service cloud.firestore {
       match /sales/{saleId} {
         allow read: if hasPermission(bid, 'sales.view');
         allow create: if hasPermission(bid, request.resource.data.type == 'void' ? 'sales.void' : 'sales.create')
+          // Una venta se anula una sola vez: el id de la anulación es determinista.
+          && (request.resource.data.type == 'sale' || saleId == 'void-' + request.resource.data.voidedSaleId)
           && hasExactly(saleFields())
           && validSale(request.resource.data)
           && isNewAudit();

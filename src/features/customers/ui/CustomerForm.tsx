@@ -6,10 +6,12 @@ import { customerInputSchema, type Customer } from '../domain/customer';
 
 export interface CustomerFormProps {
   customer: Customer | null;
+  /** Id del `<form>` para enlazar el botón de envío del contenedor. */
+  formId?: string;
   onSubmit: (values: Pick<Customer, 'name' | 'documentId' | 'phone' | 'email' | 'notes'>) => void;
 }
 
-export function CustomerForm({ customer, onSubmit }: CustomerFormProps) {
+export function CustomerForm({ customer, formId = 'customer-form', onSubmit }: CustomerFormProps) {
   const form = useForm({
     resolver: zodResolver(customerInputSchema),
     defaultValues: {
@@ -23,7 +25,7 @@ export function CustomerForm({ customer, onSubmit }: CustomerFormProps) {
   const { errors } = form.formState;
   return (
     <form
-      id="customer-form"
+      id={formId}
       noValidate
       className="flex flex-col gap-4 p-4"
       onSubmit={form.handleSubmit(onSubmit)}

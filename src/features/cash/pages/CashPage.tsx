@@ -2,12 +2,21 @@ import { Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { useCurrentUser } from '@/features/auth';
 import { useActiveBusiness } from '@/features/business';
-import { Can } from '@/features/users';
+import { Can, usePermission } from '@/features/users';
 import { useOnlineStatus } from '@/shared/hooks/useSyncSummary';
 import { useToast } from '@/shared/hooks/useToast';
 import { t } from '@/shared/lib/i18n';
 import { Badge, Button, EmptyState, Modal, PageHeader, Skeleton, Text } from '@/shared/ui';
-import { useCurrentShift, useRecentShifts, useShiftSummary } from '../application/useCash';
+import {
+  useCurrentShift,
+  useRecentShifts,
+  useShiftsActivity,
+  useShiftSummary,
+} from '../application/useCash';
+import { useWorkerNames } from '../application/useWorkerNames';
+import type { CashShift } from '../domain/cashShift';
+import { shiftMovements } from '../domain/movements';
+import { ShiftMovementsDialog } from '../ui/ShiftMovementsDialog';
 import { addExpense, closeShift, openShift, setShiftClosing } from '../application/cashActions';
 import { CurrentShiftPanel } from '../ui/CurrentShiftPanel';
 import { ShiftHistory } from '../ui/ShiftHistory';
@@ -26,6 +35,11 @@ export default function CashPage() {
   const { shift, loading, deviceCode } = useCurrentShift(business.id);
   const live = useShiftSummary(business.id, shift);
   const [modal, setModal] = useState<ModalId>(null);
+  const canSeeMovements = usePermission('reports.view');
+  const workerName = useWorkerNames(business.id);
+  const [viewing, setViewing] = useState<CashShift | null>(null);
+  const viewed = useShiftsActivity(business.id, viewing ? [viewing] : []);
+  const viewedActivity = viewed.activity[0];
   const saved = (title: string) => {
     toast({ title, description: online ? undefined : t('common.savedOffline'), tone: 'success' });
   };
@@ -63,6 +77,16 @@ export default function CashPage() {
               >
                 {t('cash.addExpense')}
               </Button>
+              {canSeeMovements ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setViewing(shift);
+                  }}
+                >
+                  {t('cash.movements')}
+                </Button>
+              ) : null}
               <Can permission="cash.close">
                 <Button onClick={startClose}>
                   {shift.status === 'closing' ? t('cash.resumeClose') : t('cash.close')}
@@ -110,6 +134,18 @@ export default function CashPage() {
         loading={shifts.isPending}
         currency={business.currency}
         timezone={business.timezone}
+        onSelect={canSeeMovements ? setViewing : undefined}
+      />
+      <ShiftMovementsDialog
+        shift={viewing}
+        movements={viewedActivity ? shiftMovements(viewedActivity) : []}
+        loading={viewed.loading}
+        currency={business.currency}
+        timezone={business.timezone}
+        workerName={workerName}
+        onClose={() => {
+          setViewing(null);
+        }}
       />
       <Modal
         open={modal === 'open'}

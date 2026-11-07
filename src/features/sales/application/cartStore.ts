@@ -13,6 +13,7 @@ import {
   createOrderBook,
   openOrder,
   selectOrder,
+  setActiveCustomer,
   updateActiveLines,
   type OrderBook,
 } from '../domain/orders';
@@ -27,6 +28,7 @@ interface CartState {
   openOrder: (businessId: string) => void;
   selectOrder: (businessId: string, orderId: string) => void;
   closeOrder: (businessId: string, orderId: string) => void;
+  setCustomer: (businessId: string, customerId: string | null) => void;
 }
 
 const newId = () => crypto.randomUUID();
@@ -68,6 +70,9 @@ export const useCartStore = create<CartState>()(
       },
       selectOrder: (businessId, orderId) => {
         set((state) => update(state, businessId, (book) => selectOrder(book, orderId)));
+      },
+      setCustomer: (businessId, customerId) => {
+        set((state) => update(state, businessId, (book) => setActiveCustomer(book, customerId)));
       },
       closeOrder: (businessId, orderId) => {
         set((state) => update(state, businessId, (book) => closeOrder(book, orderId, newId())));

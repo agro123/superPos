@@ -6,6 +6,8 @@ export interface CartOrder {
   /** Número visible ("Orden 2"); se reutiliza el menor libre. */
   number: number;
   lines: CartLine[];
+  /** Cliente registrado de la orden (opcional; necesario para fiar). */
+  customerId?: string | null;
 }
 
 /** Órdenes abiertas de un negocio y la que está activa. */
@@ -64,5 +66,14 @@ export function updateActiveLines(
     orders: book.orders.map((order) =>
       order.id === active.id ? { ...order, lines: change(order.lines) } : order,
     ),
+  };
+}
+
+/** Asigna (o quita, con `null`) el cliente de la orden activa. */
+export function setActiveCustomer(book: OrderBook, customerId: string | null): OrderBook {
+  const active = activeOrder(book);
+  return {
+    ...book,
+    orders: book.orders.map((order) => (order.id === active.id ? { ...order, customerId } : order)),
   };
 }

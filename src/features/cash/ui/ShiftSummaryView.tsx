@@ -65,6 +65,15 @@ export function ShiftSummaryView({
           rows={[
             { label: t('cash.openingFloat'), value: openingFloat },
             { label: t('cash.cashIn'), value: summary.cashReceived, sign: '+' },
+            ...(summary.creditCollectedCash > 0
+              ? [
+                  {
+                    label: t('cash.creditCollectedCash'),
+                    value: summary.creditCollectedCash,
+                    sign: '+' as const,
+                  },
+                ]
+              : []),
             { label: t('cash.changeOut'), value: summary.changeGiven, sign: '−' },
             { label: t('cash.expensesOut'), value: summary.expensesTotal, sign: '−' },
             { label: t('cash.expected'), value: summary.expectedCash, emphasis: true },
@@ -76,11 +85,17 @@ export function ShiftSummaryView({
           rows={[
             ...others.map((m) => ({ label: t(`payment.${m}`), value: summary.byMethod[m] })),
             { label: t('cash.netCash'), value: summary.byMethod.cash },
+            ...(summary.byMethod.credit > 0
+              ? [{ label: t('cash.creditSold'), value: summary.byMethod.credit }]
+              : []),
             {
               label: t('cash.totalIncome'),
               value: addMoney(...Object.values(summary.byMethod)),
               emphasis: true,
             },
+            ...(summary.creditCollected > 0
+              ? [{ label: t('cash.creditCollected'), value: summary.creditCollected }]
+              : []),
           ]}
         />
       </div>

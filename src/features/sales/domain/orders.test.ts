@@ -8,6 +8,7 @@ import {
   MAX_OPEN_ORDERS,
   openOrder,
   selectOrder,
+  setActiveCustomer,
   updateActiveLines,
 } from './orders';
 
@@ -28,6 +29,12 @@ describe('órdenes del carrito', () => {
     expect(book.orders.map((o) => o.number)).toEqual([1, 3, 2]);
     for (let i = 0; i < MAX_OPEN_ORDERS + 2; i += 1) book = openOrder(book, `n${String(i)}`);
     expect(book.orders).toHaveLength(MAX_OPEN_ORDERS);
+  });
+
+  it('el cliente es por orden', () => {
+    const book = openOrder(setActiveCustomer(createOrderBook('a'), 'cu1'), 'b');
+    expect(activeOrder(book).customerId).toBeUndefined();
+    expect(activeOrder(selectOrder(book, 'a')).customerId).toBe('cu1');
   });
 
   it('al cerrar activa la vecina o deja una orden vacía', () => {

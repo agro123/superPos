@@ -1,4 +1,5 @@
-import { Printer } from 'lucide-react';
+import { Ban, Printer } from 'lucide-react';
+import { useState } from 'react';
 import { useToast } from '@/shared/hooks/useToast';
 import { multiplyMoney, type CurrencyCode, type Money } from '@/shared/domain/money';
 import { errorMessage } from '@/shared/lib/errorMessage';
@@ -7,6 +8,7 @@ import { t } from '@/shared/lib/i18n';
 import { Badge, Button, Divider, Drawer, Text } from '@/shared/ui';
 import { printReceipt } from '../application/useSales';
 import type { SaleRecord } from '../domain/ports';
+import { VoidSaleDialog } from './VoidSaleDialog';
 
 export interface SaleDetailProps {
   sale: SaleRecord | null;
@@ -14,6 +16,10 @@ export interface SaleDetailProps {
   businessName: string;
   currency: CurrencyCode;
   timeZone: string;
+  /** Nombre del cliente asociado, si lo hay. */
+  customerName?: string | null;
+  /** Presente solo si el usuario puede anular y la venta sigue vigente. */
+  onVoid?: (reason: string) => void;
   onClose: () => void;
 }
 
@@ -23,9 +29,12 @@ export function SaleDetail({
   businessName,
   currency,
   timeZone,
+  customerName,
+  onVoid,
   onClose,
 }: SaleDetailProps) {
   const toast = useToast();
+  const [voiding, setVoiding] = useState(false);
   const money = (amount: Money) => formatMoney(amount, currency);
   if (!sale) return null;
 
@@ -60,13 +69,26 @@ export function SaleDetail({
       title={t('sales.detail', { number: sale.number })}
       description={formatDateTime(sale.occurredAt, timeZone)}
       footer={
-        <Button
-          variant="outline"
-          leftIcon={<Printer aria-hidden className="size-5" />}
-          onClick={() => void print()}
-        >
-          {t('sales.print')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            leftIcon={<Printer aria-hidden className="size-5" />}
+            onClick={() => void print()}
+          >
+            {t('sales.print')}
+          </Button>
+          {onVoid ? (
+            <Button
+              variant="danger"
+              leftIcon={<Ban aria-hidden className="size-5" />}
+              onClick={() => {
+                setVoiding(true);
+              }}
+            >
+              {t('sales.void')}
+            </Button>
+          ) : null}
+        </div>
       }
     >
       <div className="flex flex-col gap-4 p-4">
@@ -74,6 +96,9 @@ export function SaleDetail({
           {voided ? <Badge tone="danger">{t('sales.voided')}</Badge> : null}
           {sale.pendingSync ? <Badge tone="warning">{t('common.pendingSync')}</Badge> : null}
         </div>
+        {customerName ? (
+          <Text variant="strong">{t('sales.customer', { name: customerName })}</Text>
+        ) : null}
         <section aria-label={t('sales.lines')}>
           <ul className="flex flex-col gap-2">
             {sale.lines.map((line, index) => (
@@ -128,6 +153,17 @@ export function SaleDetail({
           <Text variant="muted">{t('sales.voidReason', { reason: sale.voidReason })}</Text>
         ) : null}
       </div>
+      {onVoid ? (
+        <VoidSaleDialog
+          open={voiding}
+          onOpenChange={setVoiding}
+          saleNumber={sale.number}
+          onConfirm={(reason) => {
+            setVoiding(false);
+            onVoid(reason);
+          }}
+        />
+      ) : null}
     </Drawer>
   );
 }

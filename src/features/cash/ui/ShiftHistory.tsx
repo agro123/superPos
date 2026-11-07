@@ -11,10 +11,12 @@ export interface ShiftHistoryProps {
   loading: boolean;
   currency: CurrencyCode;
   timezone: string;
+  /** Abre los movimientos del turno (solo para quien puede verlos). */
+  onSelect?: (shift: CashShift) => void;
 }
 
 /** Historial de turnos con el arqueo de cada uno. */
-export function ShiftHistory({ shifts, loading, currency, timezone }: ShiftHistoryProps) {
+export function ShiftHistory({ shifts, loading, currency, timezone, onSelect }: ShiftHistoryProps) {
   const money = (amount: Money | null) => (amount === null ? '—' : formatMoney(amount, currency));
   const columns: DataTableColumn<Synced<CashShift>>[] = [
     {
@@ -72,6 +74,7 @@ export function ShiftHistory({ shifts, loading, currency, timezone }: ShiftHisto
         rows={shifts}
         getRowId={(s) => s.id}
         loading={loading}
+        onRowClick={onSelect}
         emptyState={<EmptyState icon={<Wallet />} title={t('cash.noHistory')} />}
       />
     </section>

@@ -14,6 +14,8 @@ import {
   setDoc,
   updateDoc,
   writeBatch,
+  Timestamp,
+  getDocs,
 } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 import {
@@ -44,8 +46,8 @@ afterAll(async () => {
 });
 
 describe('sales', () => {
-  const create = (uid: string, data = saleData()) =>
-    setDoc(doc(as(env, uid), path('sales/new')), { ...data, ...newAudit(uid) });
+  const create = (uid: string, data = saleData(), id = 'new') =>
+    setDoc(doc(as(env, uid), path(`sales/${id}`)), { ...data, ...newAudit(uid) });
 
   it('sales.create registra; no miembro no', async () => {
     await assertSucceeds(create(EMPLOYEE));
@@ -109,10 +111,70 @@ describe('sales', () => {
       voidReason: 'Error de digitación',
       number: 'CAJA1-000002',
     });
-    await assertFails(create(EMPLOYEE, voidSale));
-    await assertSucceeds(create(CASHIER_PLUS, voidSale));
+    await assertFails(create(EMPLOYEE, voidSale, 'void-s1'));
+    // El id debe ser `void-<venta>`: no hay dos anulaciones de la misma venta.
+    await assertFails(create(CASHIER_PLUS, voidSale, 'otro'));
+    await assertSucceeds(create(CASHIER_PLUS, voidSale, 'void-s1'));
+    await assertFails(create(CASHIER_PLUS, voidSale, 'void-s1'));
     await assertFails(
-      create(CASHIER_PLUS, saleData({ type: 'void', voidedSaleId: 'no-existe', voidReason: 'x' })),
+      create(
+        CASHIER_PLUS,
+        saleData({ type: 'void', voidedSaleId: 'no-existe', voidReason: 'x' }),
+        'void-no-existe',
+      ),
+    );
+  });
+
+  it('la anulación devuelve stock solo con sales.void', async () => {
+    const back = (uid: string) =>
+      updateDoc(doc(as(env, uid), path('products/p1')), {
+        stock: increment(1),
+        updatedAt: serverTimestamp(),
+      });
+    await assertFails(back(EMPLOYEE));
+    await assertSucceeds(back(CASHIER_PLUS));
+  });
+
+  it('fiado: solo a un cliente registrado y con un pago "credit"', async () => {
+    const credit = (overrides: Record<string, unknown>) =>
+      saleData({
+        payments: [{ method: 'credit', amountMinor: 350000, status: 'captured', reference: null }],
+        creditMinor: 350000,
+        customerId: 'cu1',
+        ...overrides,
+      });
+    await assertFails(create(EMPLOYEE, credit({ customerId: null })));
+    await assertFails(create(EMPLOYEE, credit({ customerId: 'no-existe' })));
+    // creditMinor debe corresponder a un pago "credit".
+    await assertFails(create(EMPLOYEE, credit({ creditMinor: 0 })));
+    await assertFails(create(EMPLOYEE, saleData({ creditMinor: 350000, customerId: 'cu1' })));
+    await assertFails(create(EMPLOYEE, credit({ creditMinor: 999999999 })));
+    await assertSucceeds(create(EMPLOYEE, credit({})));
+  });
+});
+
+describe('creditPayments', () => {
+  const pay = (uid: string, overrides: Record<string, unknown> = {}) =>
+    setDoc(doc(as(env, uid), path('creditPayments/new')), {
+      customerId: 'cu1',
+      amountMinor: 100000,
+      method: 'cash',
+      cashShiftId: 'shift1',
+      occurredAt: Timestamp.fromMillis(Date.now() - 1000),
+      ...newAudit(uid),
+      ...overrides,
+    });
+
+  it('abono con turno abierto y cliente existente; no miembro no', async () => {
+    await assertFails(pay(OUTSIDER));
+    await assertFails(pay(EMPLOYEE, { customerId: 'no-existe' }));
+    await assertFails(pay(EMPLOYEE, { amountMinor: 0 }));
+    await assertFails(pay(EMPLOYEE, { method: 'credit' }));
+    await assertSucceeds(pay(EMPLOYEE));
+    await assertSucceeds(getDocs(collection(as(env, EMPLOYEE), path('creditPayments'))));
+    // Inmutable.
+    await assertFails(
+      updateDoc(doc(as(env, OWNER), path('creditPayments/new')), { amountMinor: 1 }),
     );
   });
 });

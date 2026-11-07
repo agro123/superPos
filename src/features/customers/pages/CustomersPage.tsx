@@ -7,30 +7,39 @@ import type { Synced } from '@/shared/domain/live';
 import { useOnlineStatus } from '@/shared/hooks/useSyncSummary';
 import { useToast } from '@/shared/hooks/useToast';
 import { errorMessage } from '@/shared/lib/errorMessage';
+import { formatDate, formatMoney } from '@/shared/lib/formatters';
 import { t } from '@/shared/lib/i18n';
 import {
   Badge,
   Button,
+  Switch,
   DataTable,
   Drawer,
   EmptyState,
   PageHeader,
   type DataTableColumn,
 } from '@/shared/ui';
-import { customerWrites, useCustomers } from '../application/useCustomers';
+import { customerWrites, useCustomerBalances, useCustomers } from '../application/useCustomers';
+import { balanceOf } from '../domain/credit';
 import type { Customer } from '../domain/customer';
+import { CreditPaymentDialog } from '../ui/CreditPaymentDialog';
 import { CustomerForm } from '../ui/CustomerForm';
 
 type Editing = { customer: Customer | null } | null;
 
 export default function CustomersPage() {
-  const { business } = useActiveBusiness();
+  const { business, paymentMethods } = useActiveBusiness();
   const user = useCurrentUser();
   const toast = useToast();
   const online = useOnlineStatus();
   const canManage = usePermission('customers.manage');
   const customers = useCustomers(business.id);
   const [editing, setEditing] = useState<Editing>(null);
+  const credit = useCustomerBalances(business.id);
+  const [onlyDebtors, setOnlyDebtors] = useState(false);
+  const [paying, setPaying] = useState<Customer | null>(null);
+  const debtOf = (c: Customer) => balanceOf(credit.balances, c.id);
+  const rows = (customers.data ?? []).filter((c) => !onlyDebtors || debtOf(c) > 0);
 
   const columns: DataTableColumn<Synced<Customer>>[] = [
     {
@@ -52,6 +61,37 @@ export default function CustomersPage() {
     },
     { id: 'phone', header: t('common.phone'), cell: (c) => c.phone ?? '—' },
     { id: 'email', header: t('common.email'), cell: (c) => c.email ?? '—', hideOnMobile: true },
+    {
+      id: 'balance',
+      header: t('credit.col.balance'),
+      align: 'right',
+      sortValue: (c) => debtOf(c),
+      cell: (c) => {
+        const debt = debtOf(c);
+        if (debt <= 0) return '—';
+        const since = credit.balances.get(c.id)?.lastCreditAt;
+        return (
+          <span className="flex flex-col items-end gap-1">
+            <Badge tone="danger">{formatMoney(debt, business.currency)}</Badge>
+            {since ? (
+              <span className="text-xs text-text-muted">
+                {t('credit.lastCredit', { date: formatDate(since, business.timezone) })}
+              </span>
+            ) : null}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(event) => {
+                event.stopPropagation();
+                setPaying(c);
+              }}
+            >
+              {t('credit.pay')}
+            </Button>
+          </span>
+        );
+      },
+    },
   ];
 
   return (
@@ -72,6 +112,10 @@ export default function CustomersPage() {
           </Can>
         }
       />
+      <label className="flex items-center gap-3 self-start text-sm font-medium text-text">
+        <Switch checked={onlyDebtors} onCheckedChange={setOnlyDebtors} />
+        {t('credit.onlyDebtors')}
+      </label>
       {customers.isError ? (
         <EmptyState
           tone="danger"
@@ -83,7 +127,7 @@ export default function CustomersPage() {
         <DataTable
           caption={t('customers.table')}
           columns={columns}
-          rows={customers.data ?? []}
+          rows={rows}
           getRowId={(c) => c.id}
           loading={customers.isPending}
           searchText={(c) => `${c.name} ${c.documentId ?? ''} ${c.phone ?? ''}`}
@@ -132,6 +176,21 @@ export default function CustomersPage() {
           />
         ) : null}
       </Drawer>
+      <CreditPaymentDialog
+        key={paying?.id ?? 'none'}
+        customer={paying}
+        balance={paying ? debtOf(paying) : balanceOf(credit.balances, null)}
+        businessId={business.id}
+        currency={business.currency}
+        methods={paymentMethods}
+        onClose={() => {
+          setPaying(null);
+        }}
+        onRecorded={() => {
+          toast({ title: t('credit.recorded'), tone: 'success' });
+          setPaying(null);
+        }}
+      />
     </div>
   );
 }

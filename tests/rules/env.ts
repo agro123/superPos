@@ -128,6 +128,7 @@ export const saleData = (overrides: Record<string, unknown> = {}) => ({
   totalMinor: 350000,
   payments: [{ method: 'cash', amountMinor: 350000, status: 'captured', reference: null }],
   changeMinor: 0,
+  creditMinor: 0,
   customerId: null,
   cashShiftId: null,
   terminalId: TERMINAL,

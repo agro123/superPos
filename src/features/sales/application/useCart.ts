@@ -22,6 +22,8 @@ export interface CartView {
   /** Órdenes abiertas (pestañas). */
   orders: readonly CartOrder[];
   activeOrderId: string;
+  /** Cliente de la orden activa. */
+  customerId: string | null;
   /** Líneas de la orden activa. */
   lines: readonly CartLine[];
   totals: Totals;
@@ -41,6 +43,7 @@ export function useCart(businessId: string, pricesIncludeTax: boolean): CartView
     hydrated,
     orders: book?.orders ?? NO_ORDERS,
     activeOrderId: active?.id ?? '',
+    customerId: active?.customerId ?? null,
     lines,
     totals,
   };

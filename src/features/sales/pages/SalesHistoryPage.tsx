@@ -1,6 +1,13 @@
 import { ClipboardList } from 'lucide-react';
 import { useState } from 'react';
+import { useCurrentUser } from '@/features/auth';
 import { useActiveBusiness } from '@/features/business';
+import { useCurrentShift } from '@/features/cash';
+import { useProducts } from '@/features/catalog';
+import { useCustomers } from '@/features/customers';
+import { useWorkerSession } from '@/features/terminals';
+import { usePermission } from '@/features/users';
+import { useToast } from '@/shared/hooks/useToast';
 import { errorMessage } from '@/shared/lib/errorMessage';
 import { formatDateTime, formatMoney, formatNumber } from '@/shared/lib/formatters';
 import { t } from '@/shared/lib/i18n';
@@ -13,14 +20,21 @@ import {
   Select,
   type DataTableColumn,
 } from '@/shared/ui';
-import { useSalesSince } from '../application/useSales';
+import { useSalesSince, voidSale } from '../application/useSales';
 import type { SaleRecord } from '../domain/ports';
 import { SaleDetail } from '../ui/SaleDetail';
 
 const RANGES = [7, 30, 90] as const;
 
 export default function SalesHistoryPage() {
-  const { business } = useActiveBusiness();
+  const { business, modules } = useActiveBusiness();
+  const user = useCurrentUser();
+  const toast = useToast();
+  const canVoid = usePermission('sales.void');
+  const { deviceCode } = useCurrentShift(business.id);
+  const workerSession = useWorkerSession();
+  const products = useProducts(business.id);
+  const customers = useCustomers(business.id, modules.customers);
   const [days, setDays] = useState<number>(7);
   const { query, sales, voided } = useSalesSince(business.id, days);
   const [selected, setSelected] = useState<SaleRecord | null>(null);
@@ -121,6 +135,39 @@ export default function SalesHistoryPage() {
         businessName={business.name}
         currency={business.currency}
         timeZone={business.timezone}
+        customerName={
+          selected?.customerId
+            ? (customers.data?.find((c) => c.id === selected.customerId)?.name ?? null)
+            : null
+        }
+        onVoid={
+          canVoid && selected && !voided.has(selected.id)
+            ? (reason) => {
+                const result = voidSale(
+                  business.id,
+                  {
+                    sale: selected,
+                    reason,
+                    deviceCode,
+                    terminalId: workerSession?.terminalId ?? null,
+                    occurredAt: new Date(),
+                    tracksStock: (id) =>
+                      products.data?.find((p) => p.id === id)?.trackStock ?? false,
+                  },
+                  user.uid,
+                );
+                toast(
+                  result.ok
+                    ? {
+                        title: t('sales.voidedToast', { number: selected.number }),
+                        tone: 'success',
+                      }
+                    : { title: result.error.message, tone: 'danger' },
+                );
+                if (result.ok) setSelected(null);
+              }
+            : undefined
+        }
         onClose={() => {
           setSelected(null);
         }}

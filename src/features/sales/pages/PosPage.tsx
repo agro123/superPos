@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { useCurrentUser } from '@/features/auth';
 import { useActiveBusiness } from '@/features/business';
 import { useCurrentShift } from '@/features/cash';
+import { balanceOf, CustomerPickerDialog } from '@/features/customers';
 import { useWorkerSession } from '@/features/terminals';
 import { useCurrentMember } from '@/features/users';
 import { findByBarcode, useCategories, useProducts, type Product } from '@/features/catalog';
@@ -17,8 +18,11 @@ import { Button, EmptyState, PosLayout, Skeleton } from '@/shared/ui';
 import { useCartStore } from '../application/cartStore';
 import { useCart } from '../application/useCart';
 import { useCheckout } from '../application/useCheckout';
+import { useConfirmSale } from '../application/useConfirmSale';
+import { usePosCustomer } from '../application/usePosCustomer';
 import { remainingStock } from '../domain/cart';
 import { saleStatusMachine, type SaleStatus } from '../domain/sale';
+import { CartCustomer } from '../ui/CartCustomer';
 import { OrderTabs } from '../ui/OrderTabs';
 import { PaymentPanel } from '../ui/PaymentPanel';
 import { PosCart } from '../ui/PosCart';
@@ -26,7 +30,7 @@ import { PosCatalog } from '../ui/PosCatalog';
 
 /** Punto de venta. Exige un turno de caja abierto en este dispositivo (ADR 0009). */
 export default function PosPage() {
-  const { business, taxes, paymentMethods } = useActiveBusiness();
+  const { business, taxes, paymentMethods, modules } = useActiveBusiness();
   const products = useProducts(business.id);
   const categories = useCategories(business.id);
   const cart = useCart(business.id, taxes.pricesIncludeTax);
@@ -51,6 +55,15 @@ export default function PosPage() {
     uid: user.uid,
     tracksStock: (productId) => products.data?.find((p) => p.id === productId)?.trackStock ?? false,
   });
+  const confirmSale = useConfirmSale({
+    checkout,
+    cart,
+    businessId: business.id,
+    currency: business.currency,
+    online,
+  });
+  const posCustomer = usePosCustomer(business.id, modules.customers, cart.customerId);
+  const [pickingCustomer, setPickingCustomer] = useState(false);
 
   /** Agrega si hay stock; devuelve `false` (con aviso) si el producto está agotado o al tope. */
   const add = (product: Product): boolean => {
@@ -170,19 +183,32 @@ export default function PosPage() {
               goTo('awaiting_payment');
             }}
             header={
-              <OrderTabs
-                orders={cart.orders}
-                activeId={cart.activeOrderId}
-                onSelect={(orderId) => {
-                  actions.selectOrder(business.id, orderId);
-                }}
-                onOpen={() => {
-                  actions.openOrder(business.id);
-                }}
-                onClose={(orderId) => {
-                  actions.closeOrder(business.id, orderId);
-                }}
-              />
+              <>
+                <OrderTabs
+                  orders={cart.orders}
+                  activeId={cart.activeOrderId}
+                  onSelect={(orderId) => {
+                    actions.selectOrder(business.id, orderId);
+                  }}
+                  onOpen={() => {
+                    actions.openOrder(business.id);
+                  }}
+                  onClose={(orderId) => {
+                    actions.closeOrder(business.id, orderId);
+                  }}
+                />
+                {modules.customers ? (
+                  <CartCustomer
+                    name={posCustomer.customer?.name ?? null}
+                    debtLabel={
+                      posCustomer.debt > 0 ? formatMoney(posCustomer.debt, business.currency) : null
+                    }
+                    onPick={() => {
+                      setPickingCustomer(true);
+                    }}
+                  />
+                ) : null}
+              </>
             }
           />
         }
@@ -196,27 +222,33 @@ export default function PosPage() {
         currency={business.currency}
         methods={paymentMethods}
         online={online}
-        onConfirm={(method, tendered) => {
-          const result = checkout(cart.lines, cart.totals, [{ method, amount: tendered }]);
-          if (!result.ok) {
-            toast({ title: t('errors.validation'), tone: 'danger' });
-            return;
-          }
-          const sale = result.value;
-          toast({
-            title: t('pos.recorded', { number: sale.number }),
-            description:
-              sale.changeMinor > 0
-                ? t('pos.changeDue', { amount: formatMoney(sale.changeMinor, business.currency) })
-                : online
-                  ? undefined
-                  : t('common.savedOffline'),
-            tone: 'success',
-          });
-          actions.closeOrder(business.id, cart.activeOrderId);
-          goTo('draft');
+        allowCredit={posCustomer.customer !== null}
+        onConfirm={(tenders) => {
+          if (confirmSale(tenders)) goTo('draft');
         }}
       />
+      {modules.customers ? (
+        <CustomerPickerDialog
+          open={pickingCustomer}
+          onOpenChange={setPickingCustomer}
+          businessId={business.id}
+          currency={business.currency}
+          balances={posCustomer.balances}
+          selectedId={cart.customerId}
+          onSelect={(customerId) => {
+            actions.setCustomer(business.id, customerId);
+            const debt = balanceOf(posCustomer.balances, customerId);
+            if (debt > 0) {
+              toast({
+                title: t('pos.customer.debtToast', {
+                  amount: formatMoney(debt, business.currency),
+                }),
+                tone: 'warning',
+              });
+            }
+          }}
+        />
+      ) : null}
     </>
   );
 }

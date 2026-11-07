@@ -1,4 +1,4 @@
-import { ZERO_MONEY } from '@/shared/domain/money';
+import { addMoney, ZERO_MONEY } from '@/shared/domain/money';
 import { summarizeTenders, type Tender } from '@/shared/domain/payment';
 import type { Result } from '@/shared/domain/result';
 import { err, ok } from '@/shared/domain/result';
@@ -14,6 +14,8 @@ export interface CheckoutInput {
   deviceCode: string;
   cashShiftId: string;
   terminalId: string | null;
+  /** Cliente registrado (opcional; obligatorio si hay fiado). */
+  customerId: string | null;
   lines: readonly CartLine[];
   totals: Totals;
   /** Pagos tal como los entregó el cliente; el efectivo puede exceder el total (vuelto). */
@@ -38,6 +40,12 @@ export function buildCheckout(input: CheckoutInput): Result<Checkout> {
   if (!summary.ok) return summary;
   if (summary.value.remaining > 0) {
     return err(new AppError('validation', 'Los pagos no cubren el total'));
+  }
+  const credit = addMoney(
+    ...input.tenders.filter((t) => t.method === 'credit').map((t) => t.amount),
+  );
+  if (credit > 0 && !input.customerId) {
+    return err(new AppError('validation', 'El fiado exige un cliente registrado'));
   }
   const lines: SaleLine[] = input.lines.map((line) => ({
     productId: line.productId,
@@ -67,7 +75,8 @@ export function buildCheckout(input: CheckoutInput): Result<Checkout> {
         reference: null,
       })),
       changeMinor: summary.value.change,
-      customerId: null,
+      creditMinor: credit,
+      customerId: input.customerId,
       cashShiftId: input.cashShiftId,
       terminalId: input.terminalId,
       voidedSaleId: null,

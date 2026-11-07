@@ -12,6 +12,7 @@ const base = {
   deviceCode: 'CAJA1',
   cashShiftId: 'shift1',
   terminalId: 'term1',
+  customerId: null,
   lines,
   totals: calculateTotals(toTotalsLines(lines), { pricesIncludeTax: true }),
   occurredAt: new Date('2026-10-26T12:00:00Z'),
@@ -30,6 +31,21 @@ describe('buildCheckout', () => {
       payments: [{ method: 'cash', amountMinor: 900000, status: 'captured' }],
     });
     expect(result.value.stock).toEqual([{ productId: 'p1', quantity: 2 }]);
+  });
+
+  it('pago mixto con fiado: exige cliente y registra la parte fiada', () => {
+    const tenders = [
+      { method: 'cash' as const, amount: money(300000) },
+      { method: 'card' as const, amount: money(200000) },
+      { method: 'credit' as const, amount: money(300000) },
+    ];
+    expect(buildCheckout({ ...base, tenders }).ok).toBe(false);
+    const result = buildCheckout({ ...base, customerId: 'cu1', tenders });
+    expect(result.ok && result.value.sale).toMatchObject({
+      creditMinor: 300000,
+      changeMinor: 0,
+      customerId: 'cu1',
+    });
   });
 
   it('rechaza pagos insuficientes o un carrito vacío', () => {

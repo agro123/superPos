@@ -1,6 +1,7 @@
 import { BarChart3 } from 'lucide-react';
 import { useState } from 'react';
 import { useActiveBusiness } from '@/features/business';
+import { CashByWorkerReport } from '@/features/cash';
 import { errorMessage } from '@/shared/lib/errorMessage';
 import { formatMoney, formatNumber } from '@/shared/lib/formatters';
 import { t } from '@/shared/lib/i18n';
@@ -111,6 +112,7 @@ export default function ReportsPage() {
           </div>
         </>
       )}
+      <CashByWorkerReport businessId={business.id} currency={business.currency} days={days} />
     </div>
   );
 }

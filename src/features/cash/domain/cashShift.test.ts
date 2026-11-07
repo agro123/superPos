@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { money } from '@/shared/domain/money';
-import type { PaymentMethod } from '@/shared/domain/payment';
+import type { TenderMethod } from '@/shared/domain/payment';
 import {
   cashDifference,
   cashShiftMachine,
@@ -29,10 +29,14 @@ describe('arqueo', () => {
 });
 
 describe('summarizeShift', () => {
-  const sale = (id: string, payments: [PaymentMethod, number][], change = 0): ShiftSale => ({
+  const sale = (id: string, payments: [TenderMethod, number][], change = 0): ShiftSale => ({
     id,
     type: 'sale',
+    number: id,
     voidedSaleId: null,
+    cashShiftId: 'shift1',
+    createdBy: 'emp',
+    occurredAt: new Date('2026-11-01T10:00:00Z'),
     payments: payments.map(([method, amount]) => ({ method, amountMinor: money(amount) })),
     changeMinor: money(change),
   });
@@ -61,6 +65,34 @@ describe('summarizeShift', () => {
       expectedCash: 67000,
     });
     expect(summary.byMethod).toMatchObject({ cash: 21000, card: 15000, transfer: 7000 });
+  });
+});
+
+describe('summarizeShift con fiado y abonos', () => {
+  it('el fiado no entra al cajón; los abonos en efectivo sí', () => {
+    const summary = summarizeShift(
+      money(10000),
+      [
+        {
+          id: 's1',
+          type: 'sale',
+          voidedSaleId: null,
+          payments: [
+            { method: 'cash', amountMinor: money(3000) },
+            { method: 'credit', amountMinor: money(7000) },
+          ],
+          changeMinor: money(0),
+        },
+      ],
+      [],
+      [
+        { method: 'cash', amountMinor: money(2000) },
+        { method: 'transfer', amountMinor: money(500) },
+      ],
+    );
+    expect(summary.byMethod.credit).toBe(7000);
+    expect(summary).toMatchObject({ creditCollectedCash: 2000, creditCollected: 2500 });
+    expect(summary.expectedCash).toBe(15000);
   });
 });
 

@@ -24,3 +24,10 @@ related: [../adr/0009-turnos-de-caja.md]
 - La caja lee `sales` con una proyección propia (`shiftSaleSchema`): `sales` depende de `cash`
   y no puede haber ciclo.
 - Gastos: `cashShifts/{id}/expenses`, solo en turno abierto.
+- Fiado y abonos: el fiado se muestra como "por cobrar" (no entra al cajón); los abonos en efectivo
+  (`creditPayments` del turno) suman al efectivo esperado.
+- **Movimientos por trabajador** (dueño/admin, `reports.view`): clic en un turno o "Movimientos" →
+  línea de tiempo (`shiftMovements`) de apertura, ventas, anulaciones, gastos, abonos y cierre, con
+  quién hizo cada uno, filtrable por trabajador, y totales por persona (`cashByWorker`).
+- **Reporte "Caja por trabajador"** (`CashByWorkerReport`, en Reportes): mismos totales sobre los
+  turnos del periodo (hasta 200 turnos; ventas y abonos con `in` en bloques de 30).

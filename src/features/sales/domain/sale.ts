@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { auditFieldsSchema } from '@/shared/domain/audit';
-import { PAYMENT_METHODS, PAYMENT_STATUSES } from '@/shared/domain/payment';
+import { PAYMENT_STATUSES, TENDER_METHODS } from '@/shared/domain/payment';
 import { moneySchema, rateBpsSchema } from '@/shared/domain/schemas';
 import { defineStateMachine } from '@/shared/domain/stateMachine';
 
@@ -31,7 +31,7 @@ export const saleLineSchema = z.object({
 export type SaleLine = z.infer<typeof saleLineSchema>;
 
 export const salePaymentSchema = z.object({
-  method: z.enum(PAYMENT_METHODS),
+  method: z.enum(TENDER_METHODS),
   amountMinor: moneySchema,
   status: z.enum(PAYMENT_STATUSES),
   reference: z.string().max(120).nullable(),
@@ -52,6 +52,8 @@ export const saleSchema = z
     totalMinor: moneySchema,
     payments: z.array(salePaymentSchema).max(10),
     changeMinor: moneySchema,
+    /** Parte fiada (pagos `credit`): cuenta por cobrar del cliente. Exige `customerId`. */
+    creditMinor: moneySchema,
     customerId: z.string().nullable(),
     cashShiftId: z.string().nullable(),
     /** Terminal POS desde el que se vendió; `null` solo para un admin en su propio equipo. */

@@ -31,4 +31,11 @@ related: [../adr/0003-firestore-offline-y-limites-de-transacciones.md, ../adr/00
   secuencia local en IndexedDB (ADR 0006). Tarjeta/transferencia se registran como `captured`
   (datáfono externo).
 
-**Pendiente:** anulación, cliente en la venta, pago mixto y pagos electrónicos integrados.
+- **Pago mixto:** en el cobro se agregan pagos (método + monto) hasta cubrir el total; solo el
+  efectivo puede exceder (vuelto). El fiado (`credit`) aparece si la orden tiene cliente.
+- **Anulación:** desde el detalle de la venta (permiso `sales.void`), con motivo. `buildVoid` (puro)
+  crea `sales/void-<id>`: id determinista, así las reglas impiden anular dos veces. Mismo turno,
+  pagos y fiado que la original (caja, reportes y saldos la restan); `terminalId` de quien anula.
+  `saleWriter.recordVoid` devuelve el stock (`increment(+q)`) con movimientos `void` en el mismo batch.
+
+**Pendiente:** pagos electrónicos integrados (ADR 0007) y facturación electrónica.

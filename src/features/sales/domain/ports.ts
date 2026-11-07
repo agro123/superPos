@@ -22,4 +22,11 @@ export interface SaleWriter {
   /** Id generado en cliente para una venta nueva. */
   newId(businessId: string): string;
   record(businessId: string, sale: NewSale, stock: readonly StockDecrement[], uid: string): void;
+  /** Documento `void` + devolución de stock (`increment`) + movimientos `void`, en un batch. */
+  recordVoid(
+    businessId: string,
+    voidSale: NewSale,
+    restock: readonly StockDecrement[],
+    uid: string,
+  ): void;
 }

@@ -1,12 +1,12 @@
 import { Dialog, RadioGroup } from 'radix-ui';
 import type { ReactNode } from 'react';
-import type { PaymentMethod } from '@/shared/domain/payment';
+import type { TenderMethod } from '@/shared/domain/payment';
 import { cn } from '@/shared/lib/cn';
 import { t } from '@/shared/lib/i18n';
 import { Button } from '../../atoms/Button';
 
 export interface PaymentMethodOption {
-  value: PaymentMethod;
+  value: TenderMethod;
   label: string;
   icon: ReactNode;
   disabled?: boolean;
@@ -17,8 +17,8 @@ export interface PaymentSheetProps {
   onOpenChange: (open: boolean) => void;
   totalLabel: string;
   methods: readonly PaymentMethodOption[];
-  method: PaymentMethod;
-  onMethodChange: (method: PaymentMethod) => void;
+  method: TenderMethod;
+  onMethodChange: (method: TenderMethod) => void;
   /** Monto recibido ya formateado. */
   tenderedLabel: string;
   /** Vuelto o saldo pendiente, ya formateados. */
@@ -27,6 +27,8 @@ export interface PaymentSheetProps {
   keypad: ReactNode;
   /** Aviso contextual (p. ej. "sin conexión: solo efectivo"). */
   notice?: ReactNode;
+  /** Pagos ya agregados en un pago mixto (lista compuesta por la página). */
+  tenders?: ReactNode;
   confirmLabel: string;
   confirmDisabled?: boolean;
   onConfirm: () => void;
@@ -45,6 +47,7 @@ export function PaymentSheet(props: PaymentSheetProps) {
     summary,
     keypad,
     notice,
+    tenders,
   } = props;
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -85,6 +88,7 @@ export function PaymentSheet(props: PaymentSheetProps) {
             ))}
           </RadioGroup.Root>
           {notice}
+          {tenders}
           <div className="flex items-center justify-between rounded-md bg-surface-muted p-3">
             <span className="text-sm text-text-muted">{t('ui.payment.tendered')}</span>
             <output aria-live="polite" className="text-2xl font-bold text-text tabular-nums">

@@ -24,12 +24,14 @@ export function useCheckout(context: CheckoutContext) {
     lines: readonly CartLine[],
     totals: Totals,
     tenders: readonly Tender[],
+    customerId: string | null,
   ): Result<NewSale> => {
     const draft = {
       id: saleWriter.newId(context.businessId),
       deviceCode: context.deviceCode,
       cashShiftId: context.cashShiftId,
       terminalId: context.terminalId,
+      customerId,
       lines,
       totals,
       tenders,

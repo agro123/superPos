@@ -164,7 +164,10 @@ function businessWrites(business: SeedBusiness): [string, DocumentData][] {
   ]);
 
   const sales = buildSales(business, now, 14, business.type === 'cafe' ? 9 : 6);
+  // Una venta fiada al primer cliente (con un abono parcial más abajo) para ver la cartera.
+  const creditSale = business.customers.length > 0 ? sales[1] : undefined;
   for (const sale of sales) {
+    const fiada = sale === creditSale;
     writes.push([
       `${base}/sales/${sale.id}`,
       {
@@ -178,14 +181,15 @@ function businessWrites(business: SeedBusiness): [string, DocumentData][] {
         totalMinor: sale.totalMinor,
         payments: [
           {
-            method: sale.method,
+            method: fiada ? 'credit' : sale.method,
             amountMinor: sale.totalMinor,
             status: 'captured',
             reference: null,
           },
         ],
         changeMinor: 0,
-        customerId: null,
+        creditMinor: fiada ? sale.totalMinor : 0,
+        customerId: fiada ? 'customer-1' : null,
         cashShiftId: null,
         terminalId: null,
         voidedSaleId: null,
@@ -196,11 +200,25 @@ function businessWrites(business: SeedBusiness): [string, DocumentData][] {
     ]);
   }
 
+  if (creditSale) {
+    writes.push([
+      `${base}/creditPayments/abono-1`,
+      {
+        customerId: 'customer-1',
+        amountMinor: Math.floor(creditSale.totalMinor / 2),
+        method: 'cash',
+        cashShiftId: 'shift-yesterday',
+        occurredAt: Timestamp.fromDate(new Date(creditSale.occurredAt.getTime() + 3_600_000)),
+        ...audit(owner, creditSale.occurredAt),
+      },
+    ]);
+  }
+
   // Una anulación de ejemplo: documento nuevo de tipo `void` (las ventas son inmutables).
   const voided = sales[2];
   if (voided) {
     writes.push([
-      `${base}/sales/${voided.id}-void`,
+      `${base}/sales/void-${voided.id}`,
       {
         type: 'void',
         number: `${voided.number}-A`,
@@ -212,6 +230,7 @@ function businessWrites(business: SeedBusiness): [string, DocumentData][] {
         totalMinor: voided.totalMinor,
         payments: [],
         changeMinor: 0,
+        creditMinor: 0,
         customerId: null,
         cashShiftId: null,
         terminalId: null,

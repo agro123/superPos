@@ -18,4 +18,7 @@ related: [sales.md]
 - Dominio: `summarizeSales`, `salesByDay` (zona horaria del negocio), `topProducts`.
 - Gráfico de barras de una serie (sin leyenda, tooltip por barra, tabla accesible "Ver como tabla").
 
-**Pendiente:** filtros por empleado/medio de pago, exportación, agregados en servidor.
+- **Caja por trabajador:** tabla del periodo (componente de `cash`): turnos abiertos/cerrados,
+  ventas, anulaciones, efectivo, vueltos, gastos, otros medios, fiado, abonos y diferencia de arqueo.
+
+**Pendiente:** ventas por horario, margen, exportación, agregados en servidor.

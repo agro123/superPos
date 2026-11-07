@@ -6,6 +6,13 @@ import { defineStateMachine } from './stateMachine';
 export const PAYMENT_METHODS = ['cash', 'card', 'transfer', 'wallet', 'other'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
+/**
+ * Formas de saldar una venta: los medios de pago configurables más `credit` (fiado), que no es
+ * un ingreso sino una cuenta por cobrar a un cliente registrado.
+ */
+export const TENDER_METHODS = [...PAYMENT_METHODS, 'credit'] as const;
+export type TenderMethod = (typeof TENDER_METHODS)[number];
+
 export const PAYMENT_STATUSES = [
   'pending',
   'authorized',
@@ -25,12 +32,12 @@ export const paymentStatusMachine = defineStateMachine<PaymentStatus>('payment',
 });
 
 /** Métodos que se pueden registrar sin conexión (no requieren un proveedor externo). */
-export function worksOffline(method: PaymentMethod): boolean {
-  return method === 'cash' || method === 'other';
+export function worksOffline(method: TenderMethod): boolean {
+  return method === 'cash' || method === 'other' || method === 'credit';
 }
 
 export interface Tender {
-  method: PaymentMethod;
+  method: TenderMethod;
   amount: Money;
 }
 
