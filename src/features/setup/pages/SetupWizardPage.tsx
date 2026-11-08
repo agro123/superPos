@@ -23,6 +23,11 @@ import { DoneStep } from '../ui/DoneStep';
 import { ProductsStep } from '../ui/ProductsStep';
 import { WizardShell } from '../ui/WizardShell';
 
+/** `true` si el estado guardado ya incluye todos los pasos marcados localmente. */
+const reflects = (persisted: SetupProgressFields, local: SetupProgressFields) =>
+  local.completedSteps.every((s) => persisted.completedSteps.includes(s)) &&
+  local.skippedSteps.every((s) => persisted.skippedSteps.includes(s));
+
 const EMPTY: SetupProgressFields = {
   completedSteps: [],
   skippedSteps: [],
@@ -38,8 +43,17 @@ export default function SetupWizardPage() {
   const navigate = useNavigate();
   const { state: stored, loading } = useSetup();
   const persisted = stored ?? EMPTY;
-  const [optimisticState, setOptimisticState] = useState<SetupProgressFields | null>(null);
-  const state = optimisticState ?? persisted;
+  // Progreso local para no perder pasos si el snapshot llega tarde (sin red). Va ligado al
+  // negocio y cede al remoto en cuanto este lo refleja, para no ignorar cambios de otro dispositivo.
+  const [optimistic, setOptimistic] = useState<{
+    businessId: string;
+    fields: SetupProgressFields;
+  } | null>(null);
+  const pending =
+    optimistic?.businessId === business.id && !reflects(persisted, optimistic.fields)
+      ? optimistic.fields
+      : null;
+  const state = pending ?? persisted;
   const [current, setCurrent] = useState<SetupStep | null>(null);
   const [leaving, setLeaving] = useState(false);
   // Se sale cuando el estado guardado ya lo refleja; si no, la redirección del layout aún ve
@@ -58,7 +72,7 @@ export default function SetupWizardPage() {
   };
   const advance = (kind: 'completed' | 'skipped') => {
     const next = markStep(state, step, kind);
-    setOptimisticState(next);
+    setOptimistic({ businessId: business.id, fields: next });
     if (step === 'done') {
       saveSetup(business.id, { ...next, complete: true });
       setLeaving(true);
