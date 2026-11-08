@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { NavLink } from 'react-router';
 import { cn } from '@/shared/lib/cn';
 import { t } from '@/shared/lib/i18n';
+import { PremiumBadge } from '../../molecules/PremiumBadge';
 
 export interface NavItem {
   to: string;
@@ -11,6 +12,10 @@ export interface NavItem {
   end?: boolean;
   /** Contador de alertas (p. ej. productos con stock bajo); se anuncia junto al nombre. */
   badge?: { count: number; label: string };
+  /** Ancla del tour guiado (`data-tour`). */
+  tourId?: string;
+  /** Marca de función premium no incluida en el plan (texto visible). */
+  premiumLabel?: string;
 }
 
 export interface NavSection {
@@ -48,6 +53,7 @@ export function AppSidebar({ sections, brand, footer, onNavigate, className }: A
                   <NavLink
                     to={item.to}
                     end={item.end}
+                    data-tour={item.tourId}
                     onClick={onNavigate}
                     className={({ isActive }) =>
                       cn(
@@ -60,6 +66,9 @@ export function AppSidebar({ sections, brand, footer, onNavigate, className }: A
                   >
                     <span aria-hidden>{item.icon}</span>
                     {item.label}
+                    {item.premiumLabel ? (
+                      <PremiumBadge label={item.premiumLabel} className="ml-auto" />
+                    ) : null}
                     {item.badge && item.badge.count > 0 ? (
                       <span className="ml-auto rounded-full bg-danger px-2 text-xs font-semibold text-danger-fg">
                         {item.badge.count}

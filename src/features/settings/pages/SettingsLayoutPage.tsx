@@ -1,5 +1,6 @@
 import {
   Building2,
+  Crown,
   CreditCard,
   FileUp,
   MonitorSmartphone,
@@ -17,6 +18,7 @@ export default function SettingsLayoutPage() {
   const canManageUsers = usePermission('users.manage');
   const items = [
     { to: '/settings/business', label: t('settings.business'), icon: <Building2 /> },
+    { to: '/settings/plan', label: t('plan.title'), icon: <Crown /> },
     { to: '/settings/modules', label: t('settings.modules'), icon: <Puzzle /> },
     { to: '/settings/taxes', label: t('settings.taxes'), icon: <Percent /> },
     { to: '/settings/payments', label: t('settings.payments'), icon: <CreditCard /> },

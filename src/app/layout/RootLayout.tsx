@@ -1,5 +1,6 @@
 import {
   ArrowLeftRight,
+  Compass,
   Lock,
   LogOut,
   Moon,
@@ -10,8 +11,9 @@ import {
 import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
 import { useCurrentUser, useSignOut } from '@/features/auth';
-import { useActiveBusiness } from '@/features/business';
+import { useActiveBusiness, usePlan } from '@/features/business';
 import { stockLevelOf, useProducts } from '@/features/catalog';
+import { useSetupRedirect } from '@/features/setup';
 import { CatalogShareLauncher, useStorefrontSync } from '@/features/storefront';
 import {
   useEndWorkerSession,
@@ -24,6 +26,8 @@ import { t } from '@/shared/lib/i18n';
 import { AppShell, AppSidebar, BottomNav, Logo, TopBar, type NavSection } from '@/shared/ui';
 import { useThemeStore } from '../providers/theme';
 import { NAVIGATION, type NavEntry } from './navigation';
+import { PlanIndicator } from './PlanIndicator';
+import { TourLauncher } from './TourLauncher';
 import { UpdatePrompt } from './UpdatePrompt';
 
 /** Layout de la app autenticada: navegación filtrada por permisos y módulos, barra superior y avisos. */
@@ -43,6 +47,10 @@ export function RootLayout() {
   // Quien administra el catálogo mantiene publicado el catálogo público mientras usa la app.
   useStorefrontSync(hasPermission(member, 'catalog.manage'));
   const [sharing, setSharing] = useState(false);
+  const [replayTour, setReplayTour] = useState(false);
+  const { limits } = usePlan();
+  // Un negocio recién creado pasa primero por el asistente de configuración.
+  useSetupRedirect();
   const products = useProducts(business.id);
   const stockAlerts = (products.data ?? []).filter(
     (p) => p.active && ['low', 'out'].includes(stockLevelOf(p)),
@@ -56,6 +64,8 @@ export function RootLayout() {
     label: t(item.label),
     icon: item.icon,
     end: item.end,
+    tourId: `nav-${item.to}`,
+    ...(item.to === '/reports' && !limits.reports ? { premiumLabel: t('plan.premium') } : {}),
     ...(item.to === '/inventory'
       ? {
           badge: {
@@ -89,6 +99,7 @@ export function RootLayout() {
       }
       topBar={
         <TopBar
+          actions={<PlanIndicator />}
           businessName={business.name}
           user={{ name: user.displayName, email: user.email }}
           sync={sync}
@@ -112,6 +123,14 @@ export function RootLayout() {
               icon: <QrCode />,
               onSelect: () => {
                 setSharing(true);
+              },
+            },
+            {
+              id: 'tour',
+              label: t('tour.replay'),
+              icon: <Compass />,
+              onSelect: () => {
+                setReplayTour(true);
               },
             },
             {
@@ -178,6 +197,12 @@ export function RootLayout() {
     >
       <Outlet />
       <CatalogShareLauncher open={sharing} onOpenChange={setSharing} />
+      <TourLauncher
+        replay={replayTour}
+        onReplayEnd={() => {
+          setReplayTour(false);
+        }}
+      />
     </AppShell>
   );
 }

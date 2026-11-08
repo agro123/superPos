@@ -11,6 +11,8 @@ export interface BottomNavItem {
   end?: boolean;
   /** Contador de alertas, anunciado junto al nombre. */
   badge?: { count: number; label: string };
+  /** Ancla del tour guiado (`data-tour`). */
+  tourId?: string;
 }
 
 export interface BottomNavProps {
@@ -36,6 +38,7 @@ export function BottomNav({ items, className }: BottomNavProps) {
             <NavLink
               to={item.to}
               end={item.end}
+              data-tour={item.tourId}
               className={({ isActive }) =>
                 cn(
                   'flex h-16 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors [&_svg]:size-5',

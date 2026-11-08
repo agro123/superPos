@@ -1,0 +1,85 @@
+name: CD
+
+# Despliega a producción (Firebase Hosting + reglas e índices de Firestore) cuando el CI de `main`
+# termina en verde, o a mano. A mano también puede cargar los datos de demostración.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      load_demo:
+        description: 'Cargar/actualizar los datos de demostración (2 negocios ficticios)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Solo si el CI pasó (o si se lanzó a mano).
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://${{ vars.FIREBASE_PROJECT_ID }}.web.app
+    env:
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Con workflow_run se despliega exactamente el commit que pasó el CI.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Credenciales de la cuenta de servicio
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      # La config web de Firebase no es secreta (variables); la clave de Gemini sí (secreto).
+      - name: Build de producción
+        run: pnpm build:firebase
+        env:
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_USE_EMULATORS: 'false'
+          VITE_APP_CHECK_SITE_KEY: ${{ vars.VITE_APP_CHECK_SITE_KEY }}
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          VITE_GEMINI_MODEL: ${{ vars.VITE_GEMINI_MODEL }}
+
+      - name: Desplegar Hosting y reglas/índices de Firestore
+        run: pnpm exec firebase deploy --only firestore,hosting --project "$FIREBASE_PROJECT_ID" --non-interactive
+
+      - name: Datos de demostración
+        if: github.event_name == 'workflow_dispatch' && inputs.load_demo
+        run: pnpm demo
+        env:
+          DEMO_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          DEMO_CONFIRM: ${{ vars.FIREBASE_PROJECT_ID }}
+          DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
+
+      - name: Borrar credenciales
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"

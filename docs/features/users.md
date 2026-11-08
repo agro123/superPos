@@ -8,7 +8,13 @@ related: [../product/roles-and-permissions.md, ../adr/0004-permisos-por-rules-vs
 
 # users — empleados, roles y permisos
 
-**Estado:** implementado, con roles personalizados.
+**Estado:** implementado, con roles personalizados y límites por plan (ADR 0015).
+
+- **Cupos de trabajador:** gratis 1, premium 3 (`seats/{id}`). Aceptar una invitación de empleado
+  toma el primer cupo libre en el mismo batch; si el plan no lo admite, se informa "alcanzó el límite
+  de trabajadores". Al editar un miembro, activarlo o volverlo empleado toma un cupo; desactivarlo o
+  volverlo admin lo libera. La pantalla muestra "Cupos de trabajador: X de N".
+- **Premium en las reglas:** crear o editar roles personalizados y tener más administradores.
 
 - **Roles personalizados** (`roles/{id}`: nombre + permisos), en Configuración → Empleados. Se crean
   desde plantillas (Cajero, Inventario, Mesero, Supervisor) o desde cero. Un miembro o invitación

@@ -25,6 +25,7 @@
     "test:rules": "firebase emulators:exec --only firestore --project demo-superpos \"vitest run --config vitest.rules.config.ts\"",
     "test:e2e": "firebase emulators:exec --only auth,firestore,storage --project demo-superpos \"pnpm seed && playwright test\"",
     "emulators": "firebase emulators:start --project demo-superpos",
+    "demo": "tsx scripts/demo.ts",
     "seed": "tsx scripts/seed.ts",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm test:rules && pnpm build && pnpm test:e2e",
     "prepare": "husky"

@@ -23,6 +23,7 @@ const FEATURES = [
   'settings',
   'terminals',
   'storefront',
+  'setup',
   'restaurant',
   'platform',
 ];

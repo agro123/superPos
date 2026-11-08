@@ -1,4 +1,8 @@
-/** API pública de la feature settings (pantallas de configuración). */
+/** API pública de la feature settings (pantallas de configuración y sus formularios). */
+export { BusinessPanel } from './ui/BusinessPanel';
+export { ModulesPanel } from './ui/ModulesPanel';
+export { PaymentsPanel } from './ui/PaymentsPanel';
+export { TaxesPanel } from './ui/TaxesPanel';
 export const settingsPages = {
   layout: () => import('./pages/SettingsLayoutPage'),
   business: () => import('./pages/BusinessSettingsPage'),
@@ -9,4 +13,5 @@ export const settingsPages = {
   terminals: () => import('./pages/TerminalsSettingsPage'),
   storefront: () => import('./pages/StorefrontSettingsPage'),
   import: () => import('./pages/ImportSettingsPage'),
+  plan: () => import('./pages/PlanSettingsPage'),
 };

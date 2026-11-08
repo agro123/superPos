@@ -12,12 +12,19 @@ import {
   watchInvitations,
   watchMembers,
   watchRoles,
+  watchSeats,
   saveRole,
   deleteRole,
 } from '../infrastructure/memberRepository';
 
 export const useMembers = (bid: string) => useLiveQuery(['members', bid], watchMembers(bid));
 export const useRoles = (bid: string) => useLiveQuery(['roles', bid], watchRoles(bid));
+
+/** Cupos de trabajador ocupados (`seats/{id}`). */
+export function useTakenSeats(bid: string): ReadonlySet<string> {
+  const seats = useLiveQuery(['seats', bid], watchSeats(bid));
+  return new Set((seats.data ?? []).map((seat) => seat.id));
+}
 
 /** Nombre visible del rol de un miembro o invitación (los personalizados, por su nombre). */
 export function useRoleLabel(bid: string): (role: Role, customRoleId: string | null) => string {

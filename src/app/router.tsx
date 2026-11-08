@@ -11,6 +11,7 @@ import { reportsPages } from '@/features/reports';
 import { restaurantPages } from '@/features/restaurant';
 import { salesPages } from '@/features/sales';
 import { settingsPages } from '@/features/settings';
+import { setupPages } from '@/features/setup';
 import { storefrontPages } from '@/features/storefront';
 import { terminalsPages } from '@/features/terminals';
 import type { Permission } from '@/features/users';
@@ -80,6 +81,7 @@ export const routes: RouteObject[] = [
                     element: <RootLayout />,
                     children: [
                       { index: true, lazy: page(reportsPages.dashboard) },
+                      guarded('setup', 'settings.manage', setupPages.wizard),
                       guarded('pos', 'sales.create', salesPages.pos),
                       guarded('sales', 'sales.view', salesPages.history),
                       guarded('catalog', 'catalog.manage', catalogPages.catalog),
@@ -101,6 +103,7 @@ export const routes: RouteObject[] = [
                             children: [
                               { index: true, element: <Navigate to="business" replace /> },
                               { path: 'business', lazy: page(settingsPages.business) },
+                              { path: 'plan', lazy: page(settingsPages.plan) },
                               { path: 'modules', lazy: page(settingsPages.modules) },
                               { path: 'taxes', lazy: page(settingsPages.taxes) },
                               { path: 'payments', lazy: page(settingsPages.payments) },

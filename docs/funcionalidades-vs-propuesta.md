@@ -21,23 +21,23 @@ Leyenda: ✅ implementado · 🟡 parcial · ❌ falta
 
 ### Registro del negocio y tipo de tienda
 
-| Funcionalidad                                                 | Estado | Notas                                                                                         |
-| ------------------------------------------------------------- | :----: | --------------------------------------------------------------------------------------------- |
-| Crear cuenta y registrar el negocio                           |   ✅   | Onboarding con negocio, miembro admin y configuración en un solo batch.                       |
-| Elegir tipo de tienda                                         |   ✅   | Tipo inmutable; activa módulos por defecto (p. ej. restaurante).                              |
-| El sistema adapta **categorías y opciones** al tipo de tienda |   🟡   | Solo se adaptan los módulos. No hay plantillas de categorías ni productos sugeridos por tipo. |
-| Varios negocios por usuario                                   |   ✅   | Selector de negocio activo.                                                                   |
+| Funcionalidad                                                 | Estado | Notas                                                                                                                                                                                   |
+| ------------------------------------------------------------- | :----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Crear cuenta y registrar el negocio                           |   ✅   | Onboarding con negocio, miembro admin y configuración en un solo batch.                                                                                                                 |
+| Elegir tipo de tienda                                         |   ✅   | Tipo inmutable; activa módulos por defecto (p. ej. restaurante).                                                                                                                        |
+| El sistema adapta **categorías y opciones** al tipo de tienda |   ✅   | Asistente de configuración inicial (10 pasos) con sugerencias por tipo: categorías, productos de ejemplo con precio editable, módulos, impuestos, medios de pago, roles y base de caja. |
+| Varios negocios por usuario                                   |   ✅   | Selector de negocio activo.                                                                                                                                                             |
 
 ### Trabajadores, roles e ID único del negocio
 
-| Funcionalidad                                                                 | Estado | Notas                                                                                                                                                                                                                            |
-| ----------------------------------------------------------------------------- | :----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Roles administrador / empleado con permisos                                   |   ✅   | Permisos aplicados en las Security Rules; editor de permisos por miembro.                                                                                                                                                        |
-| Alta y baja de trabajadores (rotación frecuente)                              |   ✅   | Invitación por email verificado y desactivación de miembros.                                                                                                                                                                     |
-| **Ingreso del trabajador con el ID único del negocio + usuario + contraseña** |   ❌   | Hoy el trabajador entra con su propio email (invitación). Falta el ID visible del negocio y el login por ID + usuario, sin email propio. Requiere Cloud Functions (custom tokens).                                               | NO IMPLEMENTAR |
-| Cambio rápido de trabajador en el mismo dispositivo                           |   ✅   | Terminales autorizados por QR: el trabajador elige su perfil y entra con contraseña; "Cambiar de trabajador" cierra su sesión. PIN y QR personal pendientes de Cloud Functions (ADR 0011).                                       |
-| El dueño ve **qué vendió y qué movimientos de caja hizo cada trabajador**     |   ✅   | Caja → clic en un turno (o "Movimientos"): línea de tiempo filtrable por trabajador (apertura, ventas, anulaciones, gastos, abonos, cierre) y totales por persona. Sesiones por terminal en Configuración → Terminales.          |
-| Roles adicionales (cajero, inventario, mesero) en plan de pago                |   ✅   | Configuración → Empleados → "Roles personalizados": plantillas Cajero, Inventario, Mesero y Supervisor, permisos configurables y asignación a empleados o invitaciones. Validados en las reglas. Falta ligarlos al plan de pago. |
+| Funcionalidad                                                                 | Estado | Notas                                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------- | :----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Roles administrador / empleado con permisos                                   |   ✅   | Permisos aplicados en las Security Rules; editor de permisos por miembro.                                                                                                                                               |
+| Alta y baja de trabajadores (rotación frecuente)                              |   ✅   | Invitación por email verificado y desactivación de miembros.                                                                                                                                                            |
+| **Ingreso del trabajador con el ID único del negocio + usuario + contraseña** |   ❌   | Hoy el trabajador entra con su propio email (invitación). Falta el ID visible del negocio y el login por ID + usuario, sin email propio. Requiere Cloud Functions (custom tokens).                                      | NO IMPLEMENTAR |
+| Cambio rápido de trabajador en el mismo dispositivo                           |   ✅   | Terminales autorizados por QR: el trabajador elige su perfil y entra con contraseña; "Cambiar de trabajador" cierra su sesión. PIN y QR personal pendientes de Cloud Functions (ADR 0011).                              |
+| El dueño ve **qué vendió y qué movimientos de caja hizo cada trabajador**     |   ✅   | Caja → clic en un turno (o "Movimientos"): línea de tiempo filtrable por trabajador (apertura, ventas, anulaciones, gastos, abonos, cierre) y totales por persona. Sesiones por terminal en Configuración → Terminales. |
+| Roles adicionales (cajero, inventario, mesero) en plan de pago                |   ✅   | Roles personalizados solo en premium (impuesto en las reglas), con plantillas y permisos configurables.                                                                                                                 |
 
 ### Ventas (JTBD 4)
 
@@ -107,24 +107,24 @@ Leyenda: ✅ implementado · 🟡 parcial · ❌ falta
 
 ### Planes freemium y suscripción
 
-| Funcionalidad                                             | Estado | Notas                                                                                                                                                                                             |
-| --------------------------------------------------------- | :----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Plan `free` / `premium` por negocio                       |   🟡   | El super admin lo asigna, pero el plan no habilita ni restringe nada.                                                                                                                             |
-| Límites del plan gratuito (1 trabajador; hasta 3 en pago) |   ❌   | Debe validarse en las Security Rules, no solo en la UI.                                                                                                                                           |
-| Reportes e I.A. solo en plan de pago                      |   🟡   | El Asesor I.A. se habilita solo con plan premium (control en la app; ADR 0013). Los reportes siguen abiertos.                                                                                     |
-| Cobro de la suscripción (pasarela de pago)                |   ❌   | Requiere servidor (ADR 0007).                                                                                                                                                                     |
-| Almacenamiento en la nube / respaldo                      |   ✅   | Firestore + caché offline. Nota: hoy aplica a todos los planes, mientras la propuesta lo reserva al plan de pago. Conviene revisar esa decisión, porque la app depende de la nube para funcionar. |
+| Funcionalidad                                             | Estado | Notas                                                                                                                                                                     |
+| --------------------------------------------------------- | :----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plan `free` / `premium` por negocio                       |   ✅   | Lo asigna el super admin; habilita o bloquea funciones (ADR 0015). Visible en la barra superior y en Configuración → Plan, con solicitud de cambio por teléfono o correo. |
+| Límites del plan gratuito (1 trabajador; hasta 3 en pago) |   ✅   | Cupos de trabajador impuestos en las Security Rules (`seats/{1..3}`).                                                                                                     |
+| Reportes e I.A. solo en plan de pago                      |   ✅   | Reportes, Asesor I.A. y exportaciones solo en premium (control en la app; ADR 0015).                                                                                      |
+| Cobro de la suscripción (pasarela de pago)                |   ❌   | Requiere servidor (ADR 0007).                                                                                                                                             |
+| Almacenamiento en la nube / respaldo                      |   ✅   | Ambos planes guardan en la nube (la app lo necesita); gratis consulta 30 días de historial y premium 1 año + respaldo completo en Excel.                                  |
 
 ### Requisitos transversales de la propuesta
 
-| Requisito                                  | Estado | Notas                                                                            |
-| ------------------------------------------ | :----: | -------------------------------------------------------------------------------- |
-| Web, multidispositivo, sin instalar nada   |   ✅   | PWA instalable opcionalmente; diseño responsive y barra inferior en móvil.       |
-| Funciona con internet inestable            |   ✅   | Offline-first: ventas, caja e inventario se sincronizan al volver la red.        |
-| Fácil de usar para personas poco digitales |   🟡   | Interfaz táctil y simple; faltan tutoriales y una guía inicial dentro de la app. |
-| Seguridad de la información                |   ✅   | Security Rules probadas, roles y PIN de bloqueo.                                 |
-| Soporte por WhatsApp / manual de usuario   |   ❌   | Sin enlace de soporte ni manual en la app.                                       |
-| Varias sedes                               |   ❌   | Mencionado como plan futuro.                                                     |
+| Requisito                                  | Estado | Notas                                                                                                      |
+| ------------------------------------------ | :----: | ---------------------------------------------------------------------------------------------------------- |
+| Web, multidispositivo, sin instalar nada   |   ✅   | PWA instalable opcionalmente; diseño responsive y barra inferior en móvil.                                 |
+| Funciona con internet inestable            |   ✅   | Offline-first: ventas, caja e inventario se sincronizan al volver la red.                                  |
+| Fácil de usar para personas poco digitales |   ✅   | Asistente de configuración paso a paso y tour guiado la primera vez (y "Ver el tour otra vez" en el menú). |
+| Seguridad de la información                |   ✅   | Security Rules probadas, roles y PIN de bloqueo.                                                           |
+| Soporte por WhatsApp / manual de usuario   |   ❌   | Sin enlace de soporte ni manual en la app.                                                                 |
+| Varias sedes                               |   ❌   | Mencionado como plan futuro.                                                                               |
 
 ## Prioridad sugerida para lo que falta
 

@@ -5,17 +5,28 @@ import { t } from '@/shared/lib/i18n';
 import { Button, Checkbox, Drawer, FormField, Select, Switch, Text } from '@/shared/ui';
 import { memberWrites, useRoles } from '../application/useMembers';
 import { assignmentOf, roleChoiceOf } from '../domain/customRole';
-import { memberUpdateSchema, type Member } from '../domain/member';
+import { memberUpdateSchema, type Member, type MemberUpdate } from '../domain/member';
+import { firstFreeSeat, PLAN_LIMITS, type BusinessPlan } from '@/shared/domain/plan';
 import { grantablePermissions } from '../domain/permissions';
 
 export interface MemberEditorProps {
   businessId: string;
   member: Member;
+  plan: BusinessPlan;
+  takenSeats: ReadonlySet<string>;
+  currentUid: string;
   onClose: () => void;
 }
 
 /** Edita rol, permisos extra y estado de un miembro (requiere `users.manage`). */
-export function MemberEditor({ businessId, member, onClose }: MemberEditorProps) {
+export function MemberEditor({
+  businessId,
+  member,
+  plan,
+  takenSeats,
+  currentUid,
+  onClose,
+}: MemberEditorProps) {
   const toast = useToast();
   const roles = useRoles(businessId);
   const form = useForm({
@@ -30,6 +41,19 @@ export function MemberEditor({ businessId, member, onClose }: MemberEditorProps)
   const customRoleId = useWatch({ control: form.control, name: 'customRoleId' });
   const role = useWatch({ control: form.control, name: 'role' });
 
+  const save = (update: MemberUpdate) => {
+    // Un trabajador activo (no admin) ocupa un cupo del plan; sin cupos libres no se guarda.
+    const needsSeat = update.role !== 'admin' && update.status === 'active' && !member.seatId;
+    const seat = needsSeat ? firstFreeSeat(plan, takenSeats) : null;
+    if (needsSeat && !seat) {
+      toast({ title: t('plan.noSeats'), description: t('plan.noSeatsHint'), tone: 'warning' });
+      return;
+    }
+    memberWrites.updateMember(businessId, member, update, seat, currentUid);
+    toast({ title: t('common.saved'), tone: 'success' });
+    onClose();
+  };
+
   const submit = form.handleSubmit((values) => {
     if (values.role === 'custom') {
       // Los permisos de un rol personalizado son los del rol: se toman al guardar.
@@ -38,21 +62,17 @@ export function MemberEditor({ businessId, member, onClose }: MemberEditorProps)
         roles.data ?? [],
       );
       if (!assignment) return;
-      memberWrites.updateMember(businessId, member.id, { ...assignment, status: values.status });
-      toast({ title: t('common.saved'), tone: 'success' });
-      onClose();
+      save({ ...assignment, status: values.status });
       return;
     }
     const allowedExtras = new Set(grantablePermissions(values.role));
-    memberWrites.updateMember(businessId, member.id, {
+    save({
       ...values,
       customRoleId: null,
       extraPermissions: values.extraPermissions.filter((permission) =>
         allowedExtras.has(permission),
       ),
     });
-    toast({ title: t('common.saved'), tone: 'success' });
-    onClose();
   });
 
   return (
@@ -92,7 +112,15 @@ export function MemberEditor({ businessId, member, onClose }: MemberEditorProps)
                     form.setValue('customRoleId', assignment.customRoleId);
                   }}
                   options={[
-                    { value: 'admin', label: t('role.admin') },
+                    {
+                      value: 'admin',
+                      // Ascender a admin es premium (lo imponen las reglas).
+                      label:
+                        PLAN_LIMITS[plan].extraAdmins || member.role === 'admin'
+                          ? t('role.admin')
+                          : t('plan.adminPremium'),
+                      disabled: !PLAN_LIMITS[plan].extraAdmins && member.role !== 'admin',
+                    },
                     { value: 'employee', label: t('role.employee') },
                     ...(roles.data ?? []).map((r) => ({ value: `custom:${r.id}`, label: r.name })),
                   ]}

@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useCurrentUser, useSignOut } from '@/features/auth';
+import { useCurrentUser, useSignOut, useUserProfile } from '@/features/auth';
 import { PendingInvitations } from '@/features/users';
 import { useOnlineStatus } from '@/shared/hooks/useSyncSummary';
 import { t } from '@/shared/lib/i18n';
@@ -17,9 +18,18 @@ export default function OnboardingPage() {
   const createBusiness = useCreateBusiness();
   const signOut = useSignOut();
 
+  const profile = useUserProfile(user.uid);
+  const [entering, setEntering] = useState<string | null>(null);
+  const ready = entering !== null && (profile.data?.value?.businessIds.includes(entering) ?? false);
+  // Se navega cuando el perfil ya lista el negocio: si no, la guarda de negocio aún ve el perfil
+  // anterior (sin negocios) y devuelve a esta pantalla.
+  useEffect(() => {
+    if (ready) void navigate('/', { replace: true });
+  }, [ready, navigate]);
+
   const enter = (businessId: string) => {
     setActive(user.uid, businessId);
-    void navigate('/', { replace: true });
+    setEntering(businessId);
   };
 
   return (
@@ -40,7 +50,7 @@ export default function OnboardingPage() {
     >
       <OnboardingForm
         disabled={!online}
-        submitting={createBusiness.isPending}
+        submitting={createBusiness.isPending || entering !== null}
         error={createBusiness.error}
         onSubmit={(input) => {
           createBusiness.mutate(

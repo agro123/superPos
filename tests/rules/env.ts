@@ -82,12 +82,14 @@ export const member = (
   uid: string,
   role: 'admin' | 'employee',
   extraPermissions: string[] = [],
+  seatId: string | null = null,
 ) => ({
   displayName: uid,
   email: `${uid}@example.co`,
   role,
   extraPermissions,
   status: 'active',
+  seatId,
   ...pastAudit(OWNER),
 });
 
@@ -164,18 +166,22 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       currency: 'COP',
       timezone: 'America/Bogota',
       ownerUid: OWNER,
+      // Premium: 3 cupos; las pruebas del plan gratuito usan `freePlan()`.
+      plan: 'premium',
       ...pastAudit(OWNER),
     });
     await setDoc(at(`members/${OWNER}`), member(OWNER, 'admin'));
-    await setDoc(at(`members/${EMPLOYEE}`), member(EMPLOYEE, 'employee'));
+    await setDoc(at(`members/${EMPLOYEE}`), member(EMPLOYEE, 'employee', [], '1'));
+    await setDoc(at('seats/1'), { uid: EMPLOYEE, ...pastAudit(OWNER) });
+    await setDoc(at('seats/2'), { uid: CASHIER_PLUS, ...pastAudit(OWNER) });
     await setDoc(
       at(`members/${CASHIER_PLUS}`),
-      member(CASHIER_PLUS, 'employee', [
-        'sales.void',
-        'cash.close',
-        'catalog.manage',
-        'inventory.adjust',
-      ]),
+      member(
+        CASHIER_PLUS,
+        'employee',
+        ['sales.void', 'cash.close', 'catalog.manage', 'inventory.adjust'],
+        '2',
+      ),
     );
     await setDoc(at('settings/modules'), {
       restaurant: true,
@@ -219,5 +225,13 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       businessName: 'Tienda Uno',
       ...pastAudit(OWNER),
     });
+  });
+}
+
+/** Pasa el negocio de pruebas al plan gratuito (1 cupo de trabajador, sin roles ni más admins). */
+export async function freePlan(env: RulesTestEnvironment): Promise<void> {
+  await env.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore() as unknown as Firestore;
+    await setDoc(doc(db, `businesses/${BID}`), { plan: 'free' }, { merge: true });
   });
 }

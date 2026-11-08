@@ -5,7 +5,7 @@ import { rateBpsSchema } from '@/shared/domain/schemas';
 import type { BusinessType } from './business';
 
 /** Ids de documentos en `businesses/{bid}/settings/{id}`. */
-export const SETTINGS_DOCS = ['modules', 'taxes', 'paymentMethods'] as const;
+export const SETTINGS_DOCS = ['modules', 'taxes', 'paymentMethods', 'setup'] as const;
 export type SettingsDocId = (typeof SETTINGS_DOCS)[number];
 
 /** Módulos activables por negocio. */

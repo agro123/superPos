@@ -77,6 +77,14 @@ export async function createPlatformBusiness(
     enabled: [...DEFAULT_PAYMENT_METHODS],
     ...audit,
   });
+  // El negocio nace con la configuración inicial pendiente: el admin ve el asistente.
+  batch.set(settingsRef(bid, 'setup'), {
+    completedSteps: [],
+    skippedSteps: [],
+    dismissedAt: null,
+    completedAt: null,
+    ...audit,
+  });
   batch.set(doc(db(), 'businesses', bid, 'invitations', input.ownerEmail), {
     email: input.ownerEmail,
     role: 'admin',

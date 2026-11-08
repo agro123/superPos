@@ -6,6 +6,8 @@ import { platform } from './platform';
 import { reports } from './reports';
 import { sales } from './sales';
 import { settings } from './settings';
+import { plan } from './plan';
+import { setup } from './setup';
 import { storefront } from './storefront';
 import { terminals } from './terminals';
 import { common } from './common';
@@ -27,4 +29,6 @@ export const messages = {
   ...platform,
   ...terminals,
   ...storefront,
+  ...setup,
+  ...plan,
 } as const;

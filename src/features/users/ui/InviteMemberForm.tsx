@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
+import { PLAN_LIMITS, type BusinessPlan } from '@/shared/domain/plan';
 import { useToast } from '@/shared/hooks/useToast';
 import { t } from '@/shared/lib/i18n';
 import { Button, FormField, Input, Select, Text } from '@/shared/ui';
@@ -11,9 +12,18 @@ export interface InviteMemberFormProps {
   businessId: string;
   businessName: string;
   invitedBy: string;
+  plan: BusinessPlan;
+  /** No quedan cupos de trabajador en el plan. */
+  seatsFull: boolean;
 }
 
-export function InviteMemberForm({ businessId, businessName, invitedBy }: InviteMemberFormProps) {
+export function InviteMemberForm({
+  businessId,
+  businessName,
+  invitedBy,
+  plan,
+  seatsFull,
+}: InviteMemberFormProps) {
   const toast = useToast();
   const roles = useRoles(businessId);
   const form = useForm({
@@ -39,6 +49,11 @@ export function InviteMemberForm({ businessId, businessName, invitedBy }: Invite
     >
       <Text variant="strong">{t('employees.invite')}</Text>
       <Text variant="caption">{t('employees.inviteHint')}</Text>
+      {seatsFull ? (
+        <Text variant="caption" role="note">
+          {t('plan.seatsFullInvite')}
+        </Text>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-[1fr_12rem_auto] sm:items-end">
         <FormField label={t('common.email')} error={form.formState.errors.email?.message}>
           {(control) => (
@@ -62,7 +77,13 @@ export function InviteMemberForm({ businessId, businessName, invitedBy }: Invite
                     form.setValue('extraPermissions', assignment.extraPermissions);
                   }}
                   options={[
-                    { value: 'admin', label: t('role.admin') },
+                    {
+                      value: 'admin',
+                      label: PLAN_LIMITS[plan].extraAdmins
+                        ? t('role.admin')
+                        : t('plan.adminPremium'),
+                      disabled: !PLAN_LIMITS[plan].extraAdmins,
+                    },
                     { value: 'employee', label: t('role.employee') },
                     ...(roles.data ?? []).map((r) => ({ value: `custom:${r.id}`, label: r.name })),
                   ]}
@@ -71,7 +92,9 @@ export function InviteMemberForm({ businessId, businessName, invitedBy }: Invite
             />
           )}
         </FormField>
-        <Button type="submit">{t('employees.invite')}</Button>
+        <Button type="submit" disabled={seatsFull}>
+          {t('employees.invite')}
+        </Button>
       </div>
     </form>
   );

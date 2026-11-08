@@ -1,5 +1,6 @@
 /** API pública de la feature catalog (productos y categorías). */
 export {
+  catalogWrites,
   registerCatalogOutboxHandlers,
   useCategories,
   useProducts,

@@ -32,3 +32,6 @@ service-account*.json
 .DS_Store
 .idea/
 *.swp
+
+# Notas locales con credenciales (no subir)
+sup.txt

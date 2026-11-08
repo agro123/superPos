@@ -3,7 +3,15 @@ import {
   assertSucceeds,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { addDoc, collection, doc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  doc,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  writeBatch,
+} from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 import { as, BID, createEnv, EMPLOYEE, newAudit, OWNER, saleData, seed } from './env';
 
@@ -99,16 +107,21 @@ describe('roles personalizados', () => {
       }),
     );
     const invitee = as(env, 'nuevo', 'nuevo@example.co');
-    const accept = (customRoleId: string | null) =>
-      setDoc(doc(invitee, path('members/nuevo')), {
+    const accept = (customRoleId: string | null) => {
+      const batch = writeBatch(invitee);
+      batch.set(doc(invitee, path('members/nuevo')), {
         displayName: 'Nuevo',
         email: 'nuevo@example.co',
         role: 'custom',
         customRoleId,
         extraPermissions: role.permissions,
         status: 'active',
+        seatId: '3',
         ...newAudit('nuevo'),
       });
+      batch.set(doc(invitee, path('seats/3')), { uid: 'nuevo', ...newAudit('nuevo') });
+      return batch.commit();
+    };
     await assertFails(accept(null));
     await assertSucceeds(accept('inv'));
   });

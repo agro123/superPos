@@ -7,11 +7,13 @@ import {
   getDocs,
   query,
   setDoc,
-  updateDoc,
   where,
   writeBatch,
 } from 'firebase/firestore';
 import type { LiveDoc, Subscribe, Synced } from '@/shared/domain/live';
+import { z } from 'zod';
+import { AppError } from '@/shared/domain/errors';
+import { SEAT_IDS } from '@/shared/domain/plan';
 import { getFirebase } from '@/shared/infrastructure/firebase/app';
 import { zodConverter } from '@/shared/infrastructure/firebase/converters';
 import { mapFirebaseError } from '@/shared/infrastructure/firebase/errors';
@@ -30,6 +32,7 @@ const db = () => getFirebase().db;
 const memberConverter = zodConverter(memberSchema);
 const invitationConverter = zodConverter(invitationSchema);
 const roleConverter = zodConverter(customRoleSchema);
+const seatConverter = zodConverter(z.object({ id: z.string(), uid: z.string() }));
 const rolesCol = (bid: string) => collection(db(), 'businesses', bid, 'roles');
 
 const membersCol = (bid: string) =>
@@ -46,11 +49,36 @@ export const watchMembers = (bid: string): Subscribe<Synced<Member>[]> =>
 export const watchInvitations = (bid: string): Subscribe<Synced<Invitation>[]> =>
   watchQuery(invitationsCol(bid));
 
-export function updateMember(bid: string, uid: string, update: MemberUpdate): void {
-  trackWrite(
-    updateDoc(doc(db(), 'businesses', bid, 'members', uid), { ...update, ...updateAudit() }),
-    'members.update',
-  );
+export const watchSeats = (bid: string): Subscribe<Synced<{ id: string; uid: string }>[]> =>
+  watchQuery(collection(db(), 'businesses', bid, 'seats').withConverter(seatConverter));
+
+/**
+ * Cambia el acceso de un miembro y, en el mismo batch, toma o libera su cupo: un trabajador activo
+ * (no admin) necesita uno (`seatId`); al desactivarlo o volverlo admin se libera.
+ */
+export function updateMember(
+  bid: string,
+  member: Pick<Member, 'id' | 'seatId'>,
+  update: MemberUpdate,
+  seatToTake: string | null,
+  adminUid: string,
+): void {
+  const needsSeat = update.role !== 'admin' && update.status === 'active';
+  const batch = writeBatch(db());
+  const memberRef = doc(db(), 'businesses', bid, 'members', member.id);
+  if (needsSeat && !member.seatId && seatToTake) {
+    batch.update(memberRef, { ...update, seatId: seatToTake, ...updateAudit() });
+    batch.set(doc(db(), 'businesses', bid, 'seats', seatToTake), {
+      uid: member.id,
+      ...createAudit(adminUid),
+    });
+  } else if (!needsSeat && member.seatId) {
+    batch.update(memberRef, { ...update, seatId: null, ...updateAudit() });
+    batch.delete(doc(db(), 'businesses', bid, 'seats', member.seatId));
+  } else {
+    batch.update(memberRef, { ...update, ...updateAudit() });
+  }
+  trackWrite(batch.commit(), 'members.update');
 }
 
 export function inviteMember(
@@ -99,13 +127,34 @@ interface Invitee {
 
 /** Acepta: crea el miembro con el rol invitado, borra la invitación y agrega el negocio al perfil. */
 export async function acceptInvitation(invitation: Invitation, user: Invitee): Promise<void> {
+  const bid = invitation.businessId;
+  // Un trabajador ocupa un cupo libre; el invitado no conoce el plan: las reglas rechazan un cupo
+  // que el plan no tenga (p. ej. el 2 en el plan gratuito).
+  let seatId: string | null = null;
+  if (invitation.role !== 'admin') {
+    try {
+      const taken = new Set(
+        (await getDocs(collection(db(), 'businesses', bid, 'seats'))).docs.map((d) => d.id),
+      );
+      seatId = SEAT_IDS.find((id) => !taken.has(id)) ?? null;
+    } catch (error) {
+      throw mapFirebaseError(error);
+    }
+    if (!seatId) throw new AppError('conflict', 'El negocio no tiene cupos de trabajador libres');
+  }
   const batch = writeBatch(db());
+  if (seatId)
+    batch.set(doc(db(), 'businesses', bid, 'seats', seatId), {
+      uid: user.uid,
+      ...createAudit(user.uid),
+    });
   batch.set(doc(db(), 'businesses', invitation.businessId, 'members', user.uid), {
     displayName: user.displayName,
     email: user.email,
     role: invitation.role,
     extraPermissions: invitation.extraPermissions,
     customRoleId: invitation.customRoleId,
+    seatId,
     status: 'active',
     ...createAudit(user.uid),
   });
@@ -117,7 +166,13 @@ export async function acceptInvitation(invitation: Invitation, user: Invitee): P
   try {
     await batch.commit();
   } catch (error) {
-    throw mapFirebaseError(error);
+    const mapped = mapFirebaseError(error);
+    // Rechazo por cupo: el plan del negocio no admite más trabajadores.
+    throw seatId && mapped.code === 'permission_denied'
+      ? new AppError('conflict', 'El negocio alcanzó el límite de trabajadores de su plan', {
+          cause: error,
+        })
+      : mapped;
   }
 }
 

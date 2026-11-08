@@ -40,7 +40,11 @@ test('asesor con I.A.: sin clave o modelo configurado se bloquea el análisis', 
   await login(page, ADMIN);
   await page.goto('/reports');
   await page.getByRole('tab', { name: 'Asesor I.A.' }).click();
-  // La tienda del seed es premium; el build de pruebas no tiene VITE_GEMINI_*.
-  await expect(page.getByText('I.A. no configurada')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Analizar con I.A.' })).toHaveCount(0);
+  // La tienda del seed es premium. Sin VITE_GEMINI_* el análisis queda bloqueado; con una clave en
+  // .env.local, el modelo se verifica antes de habilitar el botón (no se llama al análisis aquí).
+  const unconfigured = page.getByText('I.A. no configurada');
+  const analyze = page.getByRole('button', { name: 'Analizar con I.A.' });
+  await expect(unconfigured.or(page.getByText(/^Modelo: /))).toBeVisible({ timeout: 15_000 });
+  if (await unconfigured.isVisible()) await expect(analyze).toHaveCount(0);
+  else await expect(analyze).toBeEnabled();
 });

@@ -72,3 +72,23 @@ imágenes de productos requieren el plan Blaze).
    Publicar: `pnpm deploy:firebase` (hosting + Firestore).
 
 `pnpm seed` y las pruebas siguen apuntando solo a los emuladores.
+
+## Despliegue continuo (CD) y datos de demostración
+
+- **Producción:** https://superpos-univalle.web.app
+- `.github/workflows/deploy.yml` despliega Hosting y las reglas/índices de Firestore cuando el CI de
+  `main` termina en verde, o a mano (Actions → CD → Run workflow). Usa el entorno `production`.
+- **Datos de demostración** (`pnpm demo`, `scripts/demo.ts`): los 2 negocios ficticios del seed en el
+  proyecto real, con una contraseña propia (`DEMO_PASSWORD`, nunca la del repositorio). Exige
+  `DEMO_PROJECT_ID`, `DEMO_CONFIRM=<mismo proyecto>` y una cuenta de servicio
+  (`GOOGLE_APPLICATION_CREDENTIALS`). Desde Actions: ejecutar CD a mano marcando "load_demo".
+  No crea super administradores. `pnpm seed` sigue apuntando solo a los emuladores.
+
+| En GitHub (Settings → Environments → `production`)                                                                                                | Tipo                   | Valor                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------- |
+| `FIREBASE_SERVICE_ACCOUNT`                                                                                                                        | Secreto                | JSON de la cuenta de servicio                                     |
+| `DEMO_PASSWORD`                                                                                                                                   | Secreto                | Contraseña de los usuarios de demostración (10+ caracteres)       |
+| `VITE_GEMINI_API_KEY`                                                                                                                             | Secreto (opcional)     | Clave de Gemini restringida por dominio; vacía = I.A. desactivada |
+| `FIREBASE_PROJECT_ID`                                                                                                                             | Variable               | `superpos-univalle`                                               |
+| `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID` | Variables              | Config web (`firebase apps:sdkconfig WEB --project prod`)         |
+| `VITE_GEMINI_MODEL`, `VITE_APP_CHECK_SITE_KEY`                                                                                                    | Variables (opcionales) | Modelo de Gemini; clave de App Check                              |

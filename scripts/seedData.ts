@@ -112,6 +112,7 @@ export const BUSINESSES: SeedBusiness[] = [
     ],
     customers: ['Marta Lucía Ospina', 'Jorge Restrepo', 'Ferretería El Tornillo'],
     modules: { restaurant: false, customers: true },
+    // Premium: reportes, I.A., roles, 3 cupos (2 ocupados: Carlos y Ana).
     plan: 'premium',
     status: 'active',
   },
@@ -145,6 +146,7 @@ export const BUSINESSES: SeedBusiness[] = [
     ],
     customers: ['Valentina Cárdenas', 'Andrés Mejía'],
     modules: { restaurant: false, customers: true },
+    // Gratis: 1 cupo (Luis), sin reportes ni roles personalizados.
     plan: 'free',
     status: 'active',
   },

@@ -47,6 +47,7 @@ export function TopBar({
           <button
             type="button"
             aria-label={`${t('ui.userMenu')}: ${user.name}`}
+            data-tour="user-menu"
             className="inline-flex size-touch items-center justify-center rounded-full"
           >
             <Avatar name={user.name} size="sm" />

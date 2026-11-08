@@ -15,6 +15,7 @@ import {
   Select,
   Text,
   type DataTableColumn,
+  PremiumBadge,
 } from '@/shared/ui';
 import { memberWrites, useMembers, useRoles } from '../application/useMembers';
 import {
@@ -24,14 +25,17 @@ import {
   type CustomRoleInput,
 } from '../domain/customRole';
 import { PERMISSIONS } from '../domain/permissions';
+import { PLAN_LIMITS, type BusinessPlan } from '@/shared/domain/plan';
 
 export interface RolesPanelProps {
   businessId: string;
   currentUid: string;
+  plan: BusinessPlan;
 }
 
 /** Roles personalizados (cajero, inventario, mesero…) con permisos configurables. */
-export function RolesPanel({ businessId, currentUid }: RolesPanelProps) {
+export function RolesPanel({ businessId, currentUid, plan }: RolesPanelProps) {
+  const allowed = PLAN_LIMITS[plan].customRoles;
   const roles = useRoles(businessId);
   const members = useMembers(businessId);
   const [editing, setEditing] = useState<{ id: string | null; input: CustomRoleInput } | null>(
@@ -85,13 +89,18 @@ export function RolesPanel({ businessId, currentUid }: RolesPanelProps) {
     <section aria-labelledby="roles-title" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 id="roles-title" className="text-base font-semibold text-text">
+          <h3
+            id="roles-title"
+            className="flex items-center gap-2 text-base font-semibold text-text"
+          >
             {t('roles.title')}
+            <PremiumBadge label={t('plan.premium')} />
           </h3>
           <Text variant="caption">{t('roles.hint')}</Text>
         </div>
         <Button
           leftIcon={<Plus aria-hidden className="size-5" />}
+          disabled={!allowed}
           onClick={() => {
             setEditing({ id: null, input: { name: '', permissions: [] } });
           }}
@@ -99,6 +108,11 @@ export function RolesPanel({ businessId, currentUid }: RolesPanelProps) {
           {t('roles.new')}
         </Button>
       </div>
+      {allowed ? null : (
+        <p role="note" className="rounded-md bg-warning-soft p-3 text-sm text-warning-soft-fg">
+          {t('plan.rolesPremium')}
+        </p>
+      )}
       <DataTable
         caption={t('roles.title')}
         columns={columns}

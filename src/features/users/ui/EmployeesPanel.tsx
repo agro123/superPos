@@ -1,10 +1,12 @@
 import { Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
+import { PLAN_LIMITS, type BusinessPlan } from '@/shared/domain/plan';
 import { errorMessage } from '@/shared/lib/errorMessage';
 import { t } from '@/shared/lib/i18n';
 import {
   Badge,
   Button,
+  PremiumBadge,
   DataTable,
   EmptyState,
   IconButton,
@@ -16,6 +18,7 @@ import {
   useBusinessInvitations,
   useMembers,
   useRoleLabel,
+  useTakenSeats,
 } from '../application/useMembers';
 import type { Member } from '../domain/member';
 import { InviteMemberForm } from './InviteMemberForm';
@@ -26,6 +29,7 @@ export interface EmployeesPanelProps {
   businessName: string;
   ownerUid: string | null;
   currentUid: string;
+  plan: BusinessPlan;
 }
 
 /** Gestión de empleados: lista, edición de acceso e invitaciones. */
@@ -34,11 +38,15 @@ export function EmployeesPanel({
   businessName,
   ownerUid,
   currentUid,
+  plan,
 }: EmployeesPanelProps) {
   const members = useMembers(businessId);
   const invitations = useBusinessInvitations(businessId);
   const [editing, setEditing] = useState<Member | null>(null);
   const roleLabel = useRoleLabel(businessId);
+  const takenSeats = useTakenSeats(businessId);
+  const seatLimit = PLAN_LIMITS[plan].workerSeats;
+  const seatsFull = takenSeats.size >= seatLimit;
   const editable = (member: Member) => member.id !== ownerUid && member.id !== currentUid;
 
   const columns: DataTableColumn<Member>[] = [
@@ -110,10 +118,21 @@ export function EmployeesPanel({
           emptyState={<EmptyState icon={<Users />} title={t('employees.title')} />}
         />
       )}
+      <p role="status" className="flex flex-wrap items-center gap-2 text-sm text-text">
+        {t('plan.seatsUsage', { used: String(takenSeats.size), total: String(seatLimit) })}
+        {plan === 'free' ? (
+          <>
+            <PremiumBadge label={t('plan.premium')} />
+            <span className="text-text-muted">{t('plan.seatsPremium')}</span>
+          </>
+        ) : null}
+      </p>
       <InviteMemberForm
         businessId={businessId}
         businessName={businessName}
         invitedBy={currentUid}
+        plan={plan}
+        seatsFull={seatsFull}
       />
       <section aria-labelledby="pending-title" className="flex flex-col gap-2">
         <Text id="pending-title" variant="strong">
@@ -148,6 +167,9 @@ export function EmployeesPanel({
         <MemberEditor
           businessId={businessId}
           member={editing}
+          plan={plan}
+          takenSeats={takenSeats}
+          currentUid={currentUid}
           onClose={() => {
             setEditing(null);
           }}

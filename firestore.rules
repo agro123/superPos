@@ -350,6 +350,28 @@ service cloud.firestore {
 
       // ----- members/{memberUid} -----
 
+      // ----- Plan: premium habilita roles personalizados, más administradores y 3 cupos -----
+
+      function isPremium() {
+        return get(businessPath(bid)).data.get('plan', 'free') == 'premium';
+      }
+
+      /** Cupos de trabajador: gratis 1, premium 3. El dueño y los admins no ocupan cupo. */
+      function seatAllowed(seatId) {
+        return seatId in (isPremium() ? ['1', '2', '3'] : ['1']);
+      }
+
+      function seatPath(seatId) {
+        return /databases/$(database)/documents/businesses/$(bid)/seats/$(seatId);
+      }
+
+      /** Un trabajador activo (no admin) debe tener un cupo a su nombre (en el mismo batch). */
+      function holdsSeat(memberUid, d) {
+        let seatId = d.get('seatId', null);
+        return d.role == 'admin' || d.status == 'disabled'
+          || (seatId is string && seatAllowed(seatId) && getAfter(seatPath(seatId)).data.uid == memberUid);
+      }
+
       /** Un rol personalizado existe en `roles/` y solo se usa con `role == 'custom'`. */
       function validCustomRole(d) {
         let roleId = d.get('customRoleId', null);
@@ -373,7 +395,8 @@ service cloud.firestore {
       match /members/{memberUid} {
         allow read: if isMember(bid) || isActiveTerminal(bid);
         allow create: if signedIn() && memberUid == uid()
-          && hasFields(['displayName', 'email', 'role', 'extraPermissions', 'status'], ['customRoleId'])
+          && hasFields(['displayName', 'email', 'role', 'extraPermissions', 'status'], ['customRoleId', 'seatId'])
+          && holdsSeat(memberUid, request.resource.data)
           && isText(request.resource.data.displayName, 1, 80)
           && request.resource.data.email == request.auth.token.email
           && validMemberAccess(request.resource.data)
@@ -395,9 +418,42 @@ service cloud.firestore {
         allow update: if hasPermission(bid, 'users.manage')
           && memberUid != uid()
           && memberUid != get(businessPath(bid)).data.ownerUid
-          && onlyChanges(['role', 'extraPermissions', 'status', 'customRoleId'])
+          && onlyChanges(['role', 'extraPermissions', 'status', 'customRoleId', 'seatId'])
           && validMemberAccess(request.resource.data)
+          && (request.resource.data.role != 'admin' || resource.data.role == 'admin' || isPremium())
+          && holdsSeat(memberUid, request.resource.data)
           && isUpdateAudit();
+      }
+
+      // ----- tourProgress/{uid}: el tour guiado se muestra una sola vez por persona -----
+
+      match /tourProgress/{memberUid} {
+        allow read: if signedIn() && memberUid == uid() && isMember(bid);
+        allow create, update: if signedIn() && memberUid == uid() && isMember(bid)
+          && hasExactly(['status'])
+          && request.resource.data.status in ['done', 'skipped']
+          && (resource == null ? isNewAudit() : isUpdateAudit());
+      }
+
+      // ----- seats/{1|2|3}: cupos de trabajador según el plan (uno por documento) -----
+
+      match /seats/{seatId} {
+        // El invitado los consulta para elegir un cupo libre antes de aceptar.
+        allow read: if isMember(bid)
+          || (verifiedEmail() && exists(/databases/$(database)/documents/businesses/$(bid)/invitations/$(request.auth.token.email)));
+        allow create: if hasExactly(['uid'])
+          && seatAllowed(seatId)
+          && isNewAudit()
+          && (
+            // El invitado toma un cupo al aceptar (miembro creado en el mismo batch).
+            (request.resource.data.uid == uid()
+              && getAfter(memberPath(bid)).data.get('seatId', null) == seatId)
+            // El admin asigna un cupo a un trabajador (al activarlo o cambiarle el rol).
+            || (hasPermission(bid, 'users.manage')
+              && getAfter(/databases/$(database)/documents/businesses/$(bid)/members/$(request.resource.data.uid)).data.get('seatId', null) == seatId)
+          );
+        // Liberar un cupo (trabajador desactivado o ascendido a admin).
+        allow delete: if hasPermission(bid, 'users.manage');
       }
 
       // ----- roles/{roleId}: roles personalizados (plantillas de permisos) -----
@@ -405,6 +461,7 @@ service cloud.firestore {
       match /roles/{roleId} {
         allow read: if isMember(bid);
         allow create, update: if hasPermission(bid, 'users.manage')
+          && isPremium()
           && hasExactly(['name', 'permissions'])
           && isText(request.resource.data.name, 2, 40)
           && request.resource.data.permissions is list
@@ -425,6 +482,8 @@ service cloud.firestore {
           && request.resource.data.businessId == bid
           && isText(request.resource.data.businessName, 1, 80)
           && request.resource.data.role in ['admin', 'employee', 'custom']
+          // Más administradores es premium (la plataforma sí invita al dueño de un negocio nuevo).
+          && (request.resource.data.role != 'admin' || isPremium() || isPlatformAdmin())
           && validCustomRole(request.resource.data)
           && request.resource.data.extraPermissions is list
           && request.resource.data.extraPermissions.hasOnly(adminPermissions())
@@ -447,6 +506,12 @@ service cloud.firestore {
             && hasExactly(['enabled'])
             && d.enabled is list && d.enabled.size() >= 1
             && d.enabled.hasOnly(['cash', 'card', 'transfer', 'wallet', 'other']))
+          || (docId == 'setup'
+            && hasExactly(['completedSteps', 'skippedSteps', 'dismissedAt', 'completedAt'])
+            && d.completedSteps is list && d.completedSteps.size() <= 20
+            && d.skippedSteps is list && d.skippedSteps.size() <= 20
+            && (d.dismissedAt == null || d.dismissedAt is timestamp)
+            && (d.completedAt == null || d.completedAt is timestamp))
           || (docId == 'publicCatalog'
             && hasExactly(['enabled', 'slug', 'title', 'description', 'whatsapp', 'showOutOfStock', 'visibleProductIds', 'emailProvider', 'emailCustomUrl'])
             && d.enabled is bool

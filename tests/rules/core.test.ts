@@ -217,7 +217,12 @@ describe('invitaciones', () => {
     );
     const db = invitee();
     const batch = writeBatch(db);
-    batch.set(doc(db, `businesses/${BID}/members/invitee`), memberDoc('employee'));
+    // Un empleado ocupa un cupo del plan (premium: 1–3; 1 y 2 ya están ocupados).
+    batch.set(doc(db, `businesses/${BID}/members/invitee`), {
+      ...memberDoc('employee'),
+      seatId: '3',
+    });
+    batch.set(doc(db, `businesses/${BID}/seats/3`), { uid: 'invitee', ...newAudit('invitee') });
     batch.delete(doc(db, `businesses/${BID}/invitations/${INVITEE_EMAIL}`));
     await assertSucceeds(batch.commit());
   });

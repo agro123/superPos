@@ -13,6 +13,7 @@ import { useCurrentUser } from '@/features/auth';
 import { useActiveBusiness } from '@/features/business';
 import { stockLevelOf, useProducts } from '@/features/catalog';
 import { CashOverview } from '@/features/cash';
+import { SetupBanner } from '@/features/setup';
 import { usePermission, type Permission } from '@/features/users';
 import { startOfDayInZone } from '@/shared/domain/dates';
 import { formatMoney, formatNumber } from '@/shared/lib/formatters';
@@ -123,6 +124,7 @@ export default function DashboardPage() {
         title={t('dashboard.greeting', { name: user.displayName.split(' ')[0] ?? '' })}
         description={t('dashboard.description', { business: business.name })}
       />
+      <SetupBanner />
       {canViewReports ? <Metrics /> : null}
       {canViewReports ? (
         <section aria-labelledby="dashboard-cash" className="flex flex-col gap-3">

@@ -13,6 +13,7 @@ const member = (overrides: Partial<Member> = {}): Member => ({
   extraPermissions: [],
   status: 'active',
   customRoleId: null,
+  seatId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   createdBy: 'owner',

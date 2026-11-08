@@ -12,6 +12,7 @@ import {
   PaymentSheet,
   ProductGrid,
   TopBar,
+  TourOverlay,
 } from '@/shared/ui';
 import { Specimen } from './Specimen';
 
@@ -24,6 +25,7 @@ const rows = Array.from({ length: 12 }, (_, i) => ({
 export function OrganismsSection() {
   const [numpad, setNumpad] = useState('');
   const [open, setOpen] = useState<'modal' | 'drawer' | 'payment' | null>(null);
+  const [tour, setTour] = useState<number | null>(null);
   return (
     <>
       <Specimen name="TopBar / AppSidebar">
@@ -49,6 +51,37 @@ export function OrganismsSection() {
             />
           </div>
         </div>
+      </Specimen>
+      <Specimen name="TourOverlay">
+        <div className="flex gap-2">
+          <Button
+            data-tour="demo-tour"
+            onClick={() => {
+              setTour(0);
+            }}
+          >
+            Iniciar tour
+          </Button>
+        </div>
+        <TourOverlay
+          open={tour !== null}
+          index={tour ?? 0}
+          onIndexChange={setTour}
+          onClose={() => {
+            setTour(null);
+          }}
+          steps={[
+            { target: 'demo-tour', title: 'Este botón', body: 'Así se resalta un elemento real.' },
+            { title: 'Sin elemento', body: 'Si el paso no tiene ancla, el globo va centrado.' },
+          ]}
+          labels={{
+            next: 'Siguiente',
+            back: 'Atrás',
+            skip: 'Saltar',
+            done: 'Terminar',
+            progress: (c, t) => `Paso ${String(c)} de ${String(t)}`,
+          }}
+        />
       </Specimen>
       <Specimen name="PageHeader">
         <PageHeader

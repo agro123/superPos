@@ -31,7 +31,9 @@ export * from './molecules/Tabs';
 export * from './molecules/Toast';
 // organisms
 export * from './organisms/AppSidebar';
+export * from './molecules/PremiumBadge';
 export * from './organisms/BottomNav';
+export * from './organisms/TourOverlay';
 export * from './organisms/CartPanel';
 export * from './organisms/DataTable';
 export * from './organisms/Drawer';

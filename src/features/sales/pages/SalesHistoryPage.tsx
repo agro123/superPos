@@ -1,7 +1,7 @@
 import { ClipboardList } from 'lucide-react';
 import { useState } from 'react';
 import { useCurrentUser } from '@/features/auth';
-import { useActiveBusiness } from '@/features/business';
+import { useActiveBusiness, usePlan } from '@/features/business';
 import { useCurrentShift } from '@/features/cash';
 import { useProducts } from '@/features/catalog';
 import { useCustomers } from '@/features/customers';
@@ -29,6 +29,7 @@ const RANGES = [7, 30, 90] as const;
 
 export default function SalesHistoryPage() {
   const { business, modules } = useActiveBusiness();
+  const { limits } = usePlan();
   const user = useCurrentUser();
   const toast = useToast();
   const canVoid = usePermission('sales.void');
@@ -116,9 +117,14 @@ export default function SalesHistoryPage() {
               onValueChange={(value) => {
                 setDays(Number(value));
               }}
+              // Plan gratuito: historial de 30 días (límite de la nube, ADR 0015).
               options={RANGES.map((value) => ({
                 value: String(value),
-                label: t('common.lastDays', { days: value }),
+                label:
+                  value > limits.historyDays
+                    ? t('plan.rangePremium', { days: value })
+                    : t('common.lastDays', { days: value }),
+                disabled: value > limits.historyDays,
               }))}
             />
           }

@@ -34,12 +34,14 @@ atajo), `QuantityStepper`, `StatCard`, `EmptyState` (vacío o error), `ConfirmDi
 `Toast`/`Toaster` (la cola vive en `useToastStore`), `SyncStatusBadge`, `PermissionGate` (permiso
 ya resuelto; `<Can>` lo conecta), `Tabs`, `DropdownMenu`.
 
-## Organismos (10)
+## Organismos (12)
 
 `AppSidebar`, `TopBar`, `DataTable` (búsqueda sin tildes, orden y paginación en cliente; la lógica
 pura está en `dataTableModel.ts`), `ProductGrid`, `CartPanel`, `Numpad` (`applyNumpadKey` puro),
 `PaymentSheet` (solo UI; recibe el teclado como slot), `Modal`, `Drawer` (left/right/bottom),
-`PageHeader`.
+`PageHeader`, `BottomNav` (barra inferior en móvil, con contador opcional) y `TourOverlay` (tour
+guiado: resalta el elemento con `data-tour="…"`, globo con progreso, Atrás/Siguiente/Saltar, foco
+atrapado y Esc; centrado si el elemento no está en pantalla).
 
 ## Templates (4)
 

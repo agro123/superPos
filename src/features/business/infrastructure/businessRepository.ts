@@ -94,6 +94,14 @@ export async function createBusiness(input: OnboardingInput, owner: Owner): Prom
     enabled: [...DEFAULT_PAYMENT_METHODS],
     ...audit,
   });
+  // El negocio nace con la configuración inicial pendiente: el admin ve el asistente.
+  batch.set(settingsRef(bid, 'setup'), {
+    completedSteps: [],
+    skippedSteps: [],
+    dismissedAt: null,
+    completedAt: null,
+    ...audit,
+  });
   batch.update(doc(db(), 'users', owner.uid), { businessIds: arrayUnion(bid), ...updateAudit() });
   try {
     await batch.commit();

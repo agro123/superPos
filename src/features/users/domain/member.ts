@@ -15,6 +15,8 @@ export const memberSchema = z
     status: z.enum(MEMBER_STATUSES),
     /** Rol personalizado (`roles/{id}`) si `role == 'custom'`. */
     customRoleId: z.string().nullable().default(null),
+    /** Cupo de trabajador (`seats/{id}`) que ocupa; los admins no ocupan cupo. */
+    seatId: z.string().nullable().default(null),
   })
   .extend(auditFieldsSchema.shape);
 
