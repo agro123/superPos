@@ -14,6 +14,7 @@ import {
   firstPendingStep,
   markStep,
   SETUP_STEPS,
+  type SetupProgressFields,
   type SetupStep,
 } from '../domain/setup';
 import { CashStep } from '../ui/CashStep';
@@ -22,7 +23,12 @@ import { DoneStep } from '../ui/DoneStep';
 import { ProductsStep } from '../ui/ProductsStep';
 import { WizardShell } from '../ui/WizardShell';
 
-const EMPTY = { completedSteps: [], skippedSteps: [], dismissedAt: null, completedAt: null };
+const EMPTY: SetupProgressFields = {
+  completedSteps: [],
+  skippedSteps: [],
+  dismissedAt: null,
+  completedAt: null,
+};
 
 /** Configuración inicial guiada del negocio (se adapta al tipo con `presetFor`). */
 export default function SetupWizardPage() {
@@ -31,12 +37,14 @@ export default function SetupWizardPage() {
   const { plan } = usePlan();
   const navigate = useNavigate();
   const { state: stored, loading } = useSetup();
-  const state = stored ?? EMPTY;
+  const persisted = stored ?? EMPTY;
+  const [optimisticState, setOptimisticState] = useState<SetupProgressFields | null>(null);
+  const state = optimisticState ?? persisted;
   const [current, setCurrent] = useState<SetupStep | null>(null);
   const [leaving, setLeaving] = useState(false);
   // Se sale cuando el estado guardado ya lo refleja; si no, la redirección del layout aún ve
   // "pendiente" y devuelve al asistente.
-  const settled = leaving && (state.completedAt !== null || state.dismissedAt !== null);
+  const settled = leaving && (persisted.completedAt !== null || persisted.dismissedAt !== null);
   useEffect(() => {
     if (settled) void navigate('/', { replace: true });
   }, [settled, navigate]);
@@ -50,6 +58,7 @@ export default function SetupWizardPage() {
   };
   const advance = (kind: 'completed' | 'skipped') => {
     const next = markStep(state, step, kind);
+    setOptimisticState(next);
     if (step === 'done') {
       saveSetup(business.id, { ...next, complete: true });
       setLeaving(true);
