@@ -8,4 +8,5 @@ export const settingsPages = {
   employees: () => import('./pages/EmployeesSettingsPage'),
   terminals: () => import('./pages/TerminalsSettingsPage'),
   storefront: () => import('./pages/StorefrontSettingsPage'),
+  import: () => import('./pages/ImportSettingsPage'),
 };

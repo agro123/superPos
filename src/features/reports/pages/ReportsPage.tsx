@@ -7,7 +7,9 @@ import { errorMessage } from '@/shared/lib/errorMessage';
 import { t } from '@/shared/lib/i18n';
 import { Button, EmptyState, PageHeader, Select, Tabs } from '@/shared/ui';
 import { exportExcel, exportPdf } from '../application/reportExport';
+import { useAiAdvisor } from '../application/useAiAdvisor';
 import { useReportsData } from '../application/useReportsData';
+import { AiAdvisorPanel } from '../ui/AiAdvisorPanel';
 import { InsightsSection } from '../ui/InsightsSection';
 import { PerformanceSection } from '../ui/PerformanceSection';
 import { ProfitSection } from '../ui/ProfitSection';
@@ -22,6 +24,7 @@ export default function ReportsPage() {
   const [days, setDays] = useState<number>(14);
   const data = useReportsData(business.id, business.timezone, days);
   const [exporting, setExporting] = useState(false);
+  const advisor = useAiAdvisor(data, days);
   const ctx = {
     businessName: business.name,
     currency: business.currency,
@@ -125,6 +128,11 @@ export default function ReportsPage() {
                   loading={data.loading}
                 />
               ),
+            },
+            {
+              value: 'ai',
+              label: t('reports.tab.ai'),
+              content: <AiAdvisorPanel advisor={advisor} loading={data.loading} />,
             },
             {
               value: 'workers',

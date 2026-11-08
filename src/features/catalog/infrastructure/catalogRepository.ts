@@ -1,4 +1,14 @@
-import { collection, deleteDoc, doc, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  orderBy,
+  query,
+  setDoc,
+  updateDoc,
+  writeBatch,
+  type WriteBatch,
+} from 'firebase/firestore';
 import type { Subscribe, Synced } from '@/shared/domain/live';
 import { getFirebase } from '@/shared/infrastructure/firebase/app';
 import { zodConverter } from '@/shared/infrastructure/firebase/converters';
@@ -55,4 +65,56 @@ export function updateCategory(bid: string, categoryId: string, input: CategoryI
 
 export function deleteCategory(bid: string, categoryId: string): void {
   trackWrite(deleteDoc(doc(categoriesCol(bid), categoryId)), 'categories.delete');
+}
+
+export interface ProductImport {
+  products: readonly { input: ValidProductInput; categoryName: string | null }[];
+  newCategories: readonly string[];
+  /** Categorías existentes (para resolver nombres a ids). */
+  categories: readonly { id: string; name: string }[];
+}
+
+/** Lotes de 400 (Firestore admite 500 escrituras por batch). */
+const IMPORT_BATCH = 400;
+
+/**
+ * Importación masiva: crea las categorías que falten y los productos, con ids generados en
+ * cliente y sin esperar (funciona sin conexión). Devuelve cuántos productos se encolaron.
+ */
+export function importProducts(bid: string, data: ProductImport, uid: string): number {
+  const categoryIds = new Map(data.categories.map((c) => [c.name.trim().toLowerCase(), c.id]));
+  const writes: ((batch: WriteBatch) => void)[] = [];
+  data.newCategories.forEach((name, index) => {
+    const ref = doc(categoriesCol(bid));
+    categoryIds.set(name.trim().toLowerCase(), ref.id);
+    writes.push((batch) => {
+      batch.set(ref, {
+        name: name.slice(0, 40),
+        color: 'neutral',
+        sortOrder: data.categories.length + index,
+        ...createAudit(uid),
+      });
+    });
+  });
+  for (const { input, categoryName } of data.products) {
+    const { initialStock, ...fields } = input;
+    const categoryId = categoryName
+      ? (categoryIds.get(categoryName.trim().toLowerCase()) ?? null)
+      : null;
+    writes.push((batch) => {
+      batch.set(doc(productsCol(bid)), {
+        ...fields,
+        categoryId,
+        stock: initialStock,
+        imageUrl: null,
+        ...createAudit(uid),
+      });
+    });
+  }
+  for (let i = 0; i < writes.length; i += IMPORT_BATCH) {
+    const batch = writeBatch(db());
+    for (const write of writes.slice(i, i + IMPORT_BATCH)) write(batch);
+    trackWrite(batch.commit(), 'products.import');
+  }
+  return data.products.length;
 }

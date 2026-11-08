@@ -34,4 +34,10 @@ related: [sales.md]
 - **Exportar:** Excel (`.xlsx` propio con `fflate`, una hoja por sección, montos como números) y PDF
   (`jspdf` bajo demanda, tablas con salto de página).
 
-**Pendiente:** asistente con I.A., agregados en servidor.
+- **Asesor I.A.** (pestaña, plan premium; ADR 0013): al pulsar "Analizar con I.A." envía a Gemini
+  cifras agregadas del periodo (sin datos de clientes; trabajadores como "Trabajador 1…") y pide un
+  JSON con resumen y recomendaciones priorizadas (`adviceSchema`, validado con Zod). Clave y modelo
+  en `VITE_GEMINI_API_KEY` / `VITE_GEMINI_MODEL`; al abrir la pestaña se verifica el modelo
+  (`checkGeminiModel`) y, si no existe o no genera contenido, se muestra el error y se bloquea.
+
+**Pendiente:** preguntas libres al asesor, llamada a la I.A. desde un servidor, agregados en servidor.

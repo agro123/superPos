@@ -1,6 +1,7 @@
 import {
   Building2,
   CreditCard,
+  FileUp,
   MonitorSmartphone,
   Percent,
   Puzzle,
@@ -20,6 +21,7 @@ export default function SettingsLayoutPage() {
     { to: '/settings/taxes', label: t('settings.taxes'), icon: <Percent /> },
     { to: '/settings/payments', label: t('settings.payments'), icon: <CreditCard /> },
     { to: '/settings/storefront', label: t('storefront.title'), icon: <Store /> },
+    { to: '/settings/import', label: t('import.title'), icon: <FileUp /> },
     ...(canManageUsers
       ? [
           { to: '/settings/employees', label: t('settings.employees'), icon: <Users /> },

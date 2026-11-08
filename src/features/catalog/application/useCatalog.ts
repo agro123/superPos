@@ -5,6 +5,7 @@ import {
   createCategory,
   createProduct,
   deleteCategory,
+  importProducts,
   updateCategory,
   updateProduct,
   watchCategories,
@@ -39,4 +40,5 @@ export const catalogWrites = {
   updateCategory,
   deleteCategory,
   queueProductImage,
+  importProducts,
 };

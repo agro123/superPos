@@ -20,4 +20,11 @@ related: [../architecture/data-model.md, ../architecture/offline-sync.md]
 - El stock solo se fija al crear (stock inicial); luego cambia con `increment()` (ventas, ajustes).
 - Categorías con color del sistema de diseño y orden.
 
-**Pendiente:** variantes de producto, importación masiva, borrado lógico desde la UI.
+- **Importación masiva** (Configuración → Importar productos, `catalog.manage`): plantilla Excel
+  (`.xlsx` propio) o CSV con `;`; se sube `.xlsx` o `.csv` (`readXlsx`/`parseCsv`). `planProductImport`
+  (puro) valida cada fila con `productInputSchema`, interpreta números locales ("3.200"), y **omite**
+  las que ya existen por código de barras, SKU o nombre (sin tildes ni mayúsculas), en el catálogo o
+  en filas anteriores. Vista previa (nuevos / omitidos / errores por fila / categorías nuevas) y
+  `importProducts` crea categorías y productos en lotes de 400 escrituras, sin esperar (offline).
+
+**Pendiente:** variantes de producto, borrado lógico desde la UI.

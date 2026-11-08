@@ -105,6 +105,7 @@ export const routes: RouteObject[] = [
                               { path: 'taxes', lazy: page(settingsPages.taxes) },
                               { path: 'payments', lazy: page(settingsPages.payments) },
                               { path: 'storefront', lazy: page(settingsPages.storefront) },
+                              guarded('import', 'catalog.manage', settingsPages.import),
                               guarded('employees', 'users.manage', settingsPages.employees),
                               guarded('terminals', 'users.manage', settingsPages.terminals),
                             ],
