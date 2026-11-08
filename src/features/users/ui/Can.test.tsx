@@ -12,6 +12,7 @@ const member = (overrides: Partial<Member> = {}): Member => ({
   role: 'employee',
   extraPermissions: [],
   status: 'active',
+  customRoleId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   createdBy: 'owner',

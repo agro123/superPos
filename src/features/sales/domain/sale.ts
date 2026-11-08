@@ -27,6 +27,8 @@ export const saleLineSchema = z.object({
   taxRateBps: rateBpsSchema,
   discountMinor: moneySchema,
   voided: z.boolean(),
+  /** Costo unitario al vender (margen exacto). Ausente en ventas anteriores a este campo. */
+  unitCostMinor: moneySchema.nullable().default(null),
 });
 export type SaleLine = z.infer<typeof saleLineSchema>;
 

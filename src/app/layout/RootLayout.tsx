@@ -1,8 +1,18 @@
-import { ArrowLeftRight, Lock, LogOut, Moon, ShieldCheck, UserRoundCog } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Lock,
+  LogOut,
+  Moon,
+  QrCode,
+  ShieldCheck,
+  UserRoundCog,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
 import { useCurrentUser, useSignOut } from '@/features/auth';
 import { useActiveBusiness } from '@/features/business';
+import { stockLevelOf, useProducts } from '@/features/catalog';
+import { CatalogShareLauncher, useStorefrontSync } from '@/features/storefront';
 import {
   useEndWorkerSession,
   useTerminalSessionGuard,
@@ -30,6 +40,13 @@ export function RootLayout() {
   const workerSession = useWorkerSession();
   const endWorkerSession = useEndWorkerSession();
   useTerminalSessionGuard();
+  // Quien administra el catálogo mantiene publicado el catálogo público mientras usa la app.
+  useStorefrontSync(hasPermission(member, 'catalog.manage'));
+  const [sharing, setSharing] = useState(false);
+  const products = useProducts(business.id);
+  const stockAlerts = (products.data ?? []).filter(
+    (p) => p.active && ['low', 'out'].includes(stockLevelOf(p)),
+  ).length;
 
   const visible = (item: NavEntry) =>
     (!item.permission || hasPermission(member, item.permission)) &&
@@ -39,6 +56,14 @@ export function RootLayout() {
     label: t(item.label),
     icon: item.icon,
     end: item.end,
+    ...(item.to === '/inventory'
+      ? {
+          badge: {
+            count: stockAlerts,
+            label: t('inventory.alertsBadge', { count: String(stockAlerts) }),
+          },
+        }
+      : {}),
   });
   const sections: NavSection[] = NAVIGATION.map((group) => ({
     id: group.id,
@@ -81,6 +106,14 @@ export function RootLayout() {
                   },
                 ]
               : []),
+            {
+              id: 'share-catalog',
+              label: t('storefront.shareMenu'),
+              icon: <QrCode />,
+              onSelect: () => {
+                setSharing(true);
+              },
+            },
             {
               id: 'lock',
               label: t('user.lock'),
@@ -144,6 +177,7 @@ export function RootLayout() {
       }
     >
       <Outlet />
+      <CatalogShareLauncher open={sharing} onOpenChange={setSharing} />
     </AppShell>
   );
 }

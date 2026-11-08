@@ -5,6 +5,7 @@ import { useActiveBusiness } from '@/features/business';
 import { useCurrentShift } from '@/features/cash';
 import { useProducts } from '@/features/catalog';
 import { useCustomers } from '@/features/customers';
+import { useEmailPreference } from '@/features/storefront';
 import { useWorkerSession } from '@/features/terminals';
 import { usePermission } from '@/features/users';
 import { useToast } from '@/shared/hooks/useToast';
@@ -35,6 +36,7 @@ export default function SalesHistoryPage() {
   const workerSession = useWorkerSession();
   const products = useProducts(business.id);
   const customers = useCustomers(business.id, modules.customers);
+  const email = useEmailPreference(business.id);
   const [days, setDays] = useState<number>(7);
   const { query, sales, voided } = useSalesSince(business.id, days);
   const [selected, setSelected] = useState<SaleRecord | null>(null);
@@ -135,11 +137,12 @@ export default function SalesHistoryPage() {
         businessName={business.name}
         currency={business.currency}
         timeZone={business.timezone}
-        customerName={
+        customer={
           selected?.customerId
-            ? (customers.data?.find((c) => c.id === selected.customerId)?.name ?? null)
+            ? (customers.data?.find((c) => c.id === selected.customerId) ?? null)
             : null
         }
+        email={email}
         onVoid={
           canVoid && selected && !voided.has(selected.id)
             ? (reason) => {

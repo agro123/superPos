@@ -1,5 +1,6 @@
-import { Ban, Printer } from 'lucide-react';
-import { useState } from 'react';
+import { Ban, Printer, Share2 } from 'lucide-react';
+import type { EmailProvider } from '@/shared/lib/share';
+import { useMemo, useState } from 'react';
 import { useToast } from '@/shared/hooks/useToast';
 import { multiplyMoney, type CurrencyCode, type Money } from '@/shared/domain/money';
 import { errorMessage } from '@/shared/lib/errorMessage';
@@ -8,6 +9,8 @@ import { t } from '@/shared/lib/i18n';
 import { Badge, Button, Divider, Drawer, Text } from '@/shared/ui';
 import { printReceipt } from '../application/useSales';
 import type { SaleRecord } from '../domain/ports';
+import { saleReceipt } from './saleReceipt';
+import { TicketShareDialog } from './TicketShareDialog';
 import { VoidSaleDialog } from './VoidSaleDialog';
 
 export interface SaleDetailProps {
@@ -16,8 +19,10 @@ export interface SaleDetailProps {
   businessName: string;
   currency: CurrencyCode;
   timeZone: string;
-  /** Nombre del cliente asociado, si lo hay. */
-  customerName?: string | null;
+  /** Cliente asociado, si lo hay. */
+  customer?: { name: string; phone: string | null; email: string | null } | null;
+  /** Proveedor de correo del negocio (para compartir el ticket). */
+  email: { provider: EmailProvider; customUrl: string | null };
   /** Presente solo si el usuario puede anular y la venta sigue vigente. */
   onVoid?: (reason: string) => void;
   onClose: () => void;
@@ -29,12 +34,19 @@ export function SaleDetail({
   businessName,
   currency,
   timeZone,
-  customerName,
+  customer,
+  email,
   onVoid,
   onClose,
 }: SaleDetailProps) {
   const toast = useToast();
   const [voiding, setVoiding] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const customerName = customer?.name ?? null;
+  const receipt = useMemo(
+    () => (sale ? saleReceipt(sale, businessName, currency, timeZone, customerName) : null),
+    [sale, businessName, currency, timeZone, customerName],
+  );
   const money = (amount: Money) => formatMoney(amount, currency);
   if (!sale) return null;
 
@@ -76,6 +88,15 @@ export function SaleDetail({
             onClick={() => void print()}
           >
             {t('sales.print')}
+          </Button>
+          <Button
+            variant="outline"
+            leftIcon={<Share2 aria-hidden className="size-5" />}
+            onClick={() => {
+              setSharing(true);
+            }}
+          >
+            {t('sales.shareTicket')}
           </Button>
           {onVoid ? (
             <Button
@@ -153,6 +174,16 @@ export function SaleDetail({
           <Text variant="muted">{t('sales.voidReason', { reason: sale.voidReason })}</Text>
         ) : null}
       </div>
+      {receipt ? (
+        <TicketShareDialog
+          open={sharing}
+          onOpenChange={setSharing}
+          receipt={receipt}
+          fileName={`ticket-${sale.number}`}
+          customer={customer ? { phone: customer.phone, email: customer.email } : null}
+          email={email}
+        />
+      ) : null}
       {onVoid ? (
         <VoidSaleDialog
           open={voiding}

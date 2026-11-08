@@ -143,13 +143,20 @@ describe('categories', () => {
 });
 
 describe('inventoryMovements', () => {
-  const movement = (uid: string, type: string) => ({
+  const movement = (uid: string, type: string, supplierId: string | null = null) => ({
     productId: 'p1',
     type,
     quantityDelta: -1,
     reason: null,
     saleId: null,
+    supplierId,
     ...newAudit(uid),
+  });
+
+  it('solo una compra cita proveedor', async () => {
+    const col = collection(as(env, OWNER), path('inventoryMovements'));
+    await assertSucceeds(addDoc(col, { ...movement(OWNER, 'purchase', 'sup1'), quantityDelta: 5 }));
+    await assertFails(addDoc(col, movement(OWNER, 'adjustment', 'sup1')));
   });
 
   it('inventory.adjust registra ajustes; el empleado solo movimientos de venta', async () => {

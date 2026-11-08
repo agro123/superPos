@@ -1,25 +1,72 @@
-import { BarChart3 } from 'lucide-react';
+import { FileSpreadsheet, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { useActiveBusiness } from '@/features/business';
 import { CashByWorkerReport } from '@/features/cash';
+import { useToast } from '@/shared/hooks/useToast';
 import { errorMessage } from '@/shared/lib/errorMessage';
-import { formatMoney, formatNumber } from '@/shared/lib/formatters';
 import { t } from '@/shared/lib/i18n';
-import { Button, EmptyState, PageHeader, Select, Skeleton, StatCard } from '@/shared/ui';
-import { useSalesReport } from '../application/useSalesReport';
-import { SalesBarChart } from '../ui/SalesBarChart';
+import { Button, EmptyState, PageHeader, Select, Tabs } from '@/shared/ui';
+import { exportExcel, exportPdf } from '../application/reportExport';
+import { useReportsData } from '../application/useReportsData';
+import { InsightsSection } from '../ui/InsightsSection';
+import { PerformanceSection } from '../ui/PerformanceSection';
+import { ProfitSection } from '../ui/ProfitSection';
+import { SalesOverview } from '../ui/SalesOverview';
 
-const RANGES = [7, 14, 30] as const;
+const RANGES = [7, 14, 30, 90] as const;
 
+/** Reportes del periodo: ventas, ganancia y trabajadores, exportables a Excel y PDF. */
 export default function ReportsPage() {
   const { business } = useActiveBusiness();
+  const toast = useToast();
   const [days, setDays] = useState<number>(14);
-  const report = useSalesReport(business.id, business.timezone, days);
-  const loading = report.query.isPending;
+  const data = useReportsData(business.id, business.timezone, days);
+  const [exporting, setExporting] = useState(false);
+  const ctx = {
+    businessName: business.name,
+    currency: business.currency,
+    timeZone: business.timezone,
+    days,
+  };
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
-      <PageHeader title={t('reports.title')} description={t('reports.description')} />
+      <PageHeader
+        title={t('reports.title')}
+        description={t('reports.description')}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              leftIcon={<FileSpreadsheet aria-hidden className="size-5" />}
+              disabled={data.loading}
+              onClick={() => {
+                exportExcel(data, ctx);
+              }}
+            >
+              {t('reports.exportExcel')}
+            </Button>
+            <Button
+              variant="outline"
+              leftIcon={<FileText aria-hidden className="size-5" />}
+              disabled={data.loading}
+              loading={exporting}
+              onClick={() => {
+                setExporting(true);
+                exportPdf(data, ctx)
+                  .catch(() => {
+                    toast({ title: t('reports.exportFailed'), tone: 'danger' });
+                  })
+                  .finally(() => {
+                    setExporting(false);
+                  });
+              }}
+            >
+              {t('reports.exportPdf')}
+            </Button>
+          </div>
+        }
+      />
       <div role="group" aria-label={t('reports.filters')} className="flex flex-wrap gap-2">
         <Select
           aria-label={t('reports.range')}
@@ -34,85 +81,73 @@ export default function ReportsPage() {
           }))}
         />
       </div>
-      {report.query.isError ? (
+      {data.query.isError ? (
         <EmptyState
           tone="danger"
           title={t('common.loadError')}
-          description={errorMessage(report.query.error)}
-          action={<Button onClick={() => void report.query.refetch()}>{t('common.retry')}</Button>}
+          description={errorMessage(data.query.error)}
+          action={<Button onClick={() => void data.query.refetch()}>{t('common.retry')}</Button>}
         />
       ) : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <StatCard
-              label={t('reports.total')}
-              value={formatMoney(report.summary.total, business.currency)}
-              loading={loading}
-            />
-            <StatCard
-              label={t('reports.count')}
-              value={formatNumber(report.summary.count)}
-              loading={loading}
-            />
-            <StatCard
-              label={t('reports.average')}
-              value={formatMoney(report.summary.averageTicket, business.currency)}
-              loading={loading}
-            />
-          </div>
-          <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-            <section
-              aria-labelledby="by-day"
-              className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4"
-            >
-              <h2 id="by-day" className="text-base font-semibold text-text">
-                {t('reports.byDay')}
-              </h2>
-              <p className="text-xs text-text-subtle">{t('reports.byDayHint')}</p>
-              {loading ? (
-                <Skeleton className="h-52" />
-              ) : report.summary.count === 0 ? (
-                <EmptyState icon={<BarChart3 />} title={t('reports.noData')} />
-              ) : (
-                <SalesBarChart
-                  data={report.byDay}
+        <Tabs
+          label={t('reports.sections')}
+          items={[
+            {
+              value: 'sales',
+              label: t('reports.tab.sales'),
+              content: (
+                <div className="flex flex-col gap-6">
+                  <SalesOverview
+                    report={data}
+                    loading={data.query.isPending}
+                    currency={business.currency}
+                    timeZone={business.timezone}
+                  />
+                  {data.query.isPending ? null : (
+                    <InsightsSection
+                      sales={data.sales}
+                      currency={business.currency}
+                      timeZone={business.timezone}
+                      days={days}
+                      workerName={data.workerName}
+                    />
+                  )}
+                </div>
+              ),
+            },
+            {
+              value: 'profit',
+              label: t('reports.tab.profit'),
+              content: (
+                <ProfitSection
+                  report={data.profit}
                   currency={business.currency}
-                  timeZone={business.timezone}
+                  loading={data.loading}
                 />
-              )}
-            </section>
-            <section
-              aria-labelledby="top-products"
-              className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4"
-            >
-              <h2 id="top-products" className="text-base font-semibold text-text">
-                {t('reports.topProducts')}
-              </h2>
-              {loading ? (
-                <Skeleton className="h-40" />
-              ) : (
-                <ol className="flex flex-col divide-y divide-border">
-                  {report.top.map((product, index) => (
-                    <li
-                      key={product.productId}
-                      className="flex items-center justify-between gap-2 py-2 text-sm"
-                    >
-                      <span className="text-text">
-                        <span className="mr-2 text-text-subtle">{index + 1}.</span>
-                        {product.name}
-                      </span>
-                      <span className="text-text-muted tabular-nums">
-                        {t('reports.units', { count: formatNumber(product.quantity) })}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </section>
-          </div>
-        </>
+              ),
+            },
+            {
+              value: 'workers',
+              label: t('reports.tab.workers'),
+              content: (
+                <div className="flex flex-col gap-8">
+                  <PerformanceSection
+                    rows={data.performance}
+                    currency={business.currency}
+                    loading={data.loading}
+                    workerName={data.workerName}
+                  />
+                  <CashByWorkerReport
+                    businessId={business.id}
+                    currency={business.currency}
+                    days={days}
+                  />
+                </div>
+              ),
+            },
+          ]}
+        />
       )}
-      <CashByWorkerReport businessId={business.id} currency={business.currency} days={days} />
     </div>
   );
 }

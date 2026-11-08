@@ -3,7 +3,8 @@ import { money as toMoney, type CurrencyCode } from '@/shared/domain/money';
 import { TENDER_METHODS } from '@/shared/domain/payment';
 import { formatDateTime, formatMoney, formatTime } from '@/shared/lib/formatters';
 import { t } from '@/shared/lib/i18n';
-import { Badge, DataTable, Modal, Select, type DataTableColumn } from '@/shared/ui';
+import { emailComposeUrl, whatsappUrl, type EmailProvider } from '@/shared/lib/share';
+import { Badge, Button, DataTable, Modal, Select, type DataTableColumn } from '@/shared/ui';
 import { cashByWorker, type CashMovement } from '../domain/movements';
 import type { CashShift } from '../domain/cashShift';
 import { WorkerCashTable } from './WorkerCashTable';
@@ -17,6 +18,9 @@ export interface ShiftMovementsDialogProps {
   currency: CurrencyCode;
   timezone: string;
   workerName: (uid: string) => string;
+  /** Resumen en texto para enviarlo (WhatsApp/correo); `null` mientras carga. */
+  report: string | null;
+  email: { provider: EmailProvider; customUrl: string | null };
   onClose: () => void;
 }
 
@@ -28,6 +32,8 @@ export function ShiftMovementsDialog({
   currency,
   timezone,
   workerName,
+  report,
+  email,
   onClose,
 }: ShiftMovementsDialogProps) {
   const [worker, setWorker] = useState('all');
@@ -80,6 +86,28 @@ export function ShiftMovementsDialog({
       }
     >
       <div className="flex flex-col gap-4">
+        {report ? (
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" asChild>
+              <a href={whatsappUrl(report)} target="_blank" rel="noopener noreferrer">
+                {t('cash.report.sendWhatsapp')}
+              </a>
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <a
+                href={emailComposeUrl(
+                  email.provider,
+                  { subject: report.split('\n')[0] ?? '', body: report },
+                  email.customUrl,
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t('cash.report.sendEmail')}
+              </a>
+            </Button>
+          </div>
+        ) : null}
         <Select
           aria-label={t('cash.filterWorker')}
           className="sm:w-56"

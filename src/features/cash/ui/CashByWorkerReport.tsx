@@ -1,11 +1,8 @@
-import { useMemo } from 'react';
 import type { CurrencyCode } from '@/shared/domain/money';
 import { errorMessage } from '@/shared/lib/errorMessage';
 import { t } from '@/shared/lib/i18n';
 import { Button, EmptyState } from '@/shared/ui';
-import { useShiftsActivity, useShiftsSince } from '../application/useCash';
-import { useWorkerNames } from '../application/useWorkerNames';
-import { cashByWorker, shiftMovements } from '../domain/movements';
+import { useCashPeriod } from '../application/useCashPeriod';
 import { WorkerCashTable } from './WorkerCashTable';
 
 export interface CashByWorkerReportProps {
@@ -17,14 +14,7 @@ export interface CashByWorkerReportProps {
 
 /** Reporte de caja por trabajador (turnos del periodo, en tiempo real). */
 export function CashByWorkerReport({ businessId, currency, days }: CashByWorkerReportProps) {
-  const shifts = useShiftsSince(businessId, days);
-  const list = useMemo(() => shifts.data ?? [], [shifts.data]);
-  const activity = useShiftsActivity(businessId, list);
-  const workerName = useWorkerNames(businessId);
-  const rows = useMemo(
-    () => cashByWorker(activity.activity.flatMap((item) => shiftMovements(item))),
-    [activity.activity],
-  );
+  const { shifts, list, activity, rows, workerName } = useCashPeriod(businessId, days);
   const error = shifts.error ?? activity.error;
 
   return (

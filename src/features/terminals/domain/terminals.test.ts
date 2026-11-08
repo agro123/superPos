@@ -68,7 +68,7 @@ describe('trabajadores del terminal', () => {
     const workers = selectableWorkers([
       { id: 'b', displayName: 'Rosa', email: 'rosa@x.co', role: 'admin', status: 'active' },
       { id: 'c', displayName: 'Ana', email: 'ana@x.co', role: 'employee', status: 'disabled' },
-      { id: 'a', displayName: 'Carlos', email: 'carlos@x.co', role: 'employee', status: 'active' },
+      { id: 'a', displayName: 'Carlos', email: 'carlos@x.co', role: 'custom', status: 'active' },
     ]);
     expect(workers.map((w) => w.id)).toEqual(['a', 'b']);
     expect(maskEmail('carlos@x.co')).toBe('c•••s@x.co');

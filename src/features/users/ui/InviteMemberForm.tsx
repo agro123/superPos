@@ -3,9 +3,9 @@ import { Controller, useForm } from 'react-hook-form';
 import { useToast } from '@/shared/hooks/useToast';
 import { t } from '@/shared/lib/i18n';
 import { Button, FormField, Input, Select, Text } from '@/shared/ui';
-import { memberWrites } from '../application/useMembers';
+import { memberWrites, useRoles } from '../application/useMembers';
+import { assignmentOf, roleChoiceOf } from '../domain/customRole';
 import { invitationInputSchema } from '../domain/invitation';
-import { ROLES } from '../domain/permissions';
 
 export interface InviteMemberFormProps {
   businessId: string;
@@ -15,9 +15,15 @@ export interface InviteMemberFormProps {
 
 export function InviteMemberForm({ businessId, businessName, invitedBy }: InviteMemberFormProps) {
   const toast = useToast();
+  const roles = useRoles(businessId);
   const form = useForm({
     resolver: zodResolver(invitationInputSchema),
-    defaultValues: { email: '', role: 'employee' as const, extraPermissions: [] },
+    defaultValues: {
+      email: '',
+      role: 'employee' as const,
+      extraPermissions: [],
+      customRoleId: null as string | null,
+    },
   });
 
   return (
@@ -47,9 +53,19 @@ export function InviteMemberForm({ businessId, businessName, invitedBy }: Invite
               render={({ field }) => (
                 <Select
                   {...control}
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  options={ROLES.map((value) => ({ value, label: t(`role.${value}`) }))}
+                  value={roleChoiceOf(field.value, form.getValues('customRoleId'))}
+                  onValueChange={(choice) => {
+                    const assignment = assignmentOf(choice, roles.data ?? []);
+                    if (!assignment) return;
+                    field.onChange(assignment.role);
+                    form.setValue('customRoleId', assignment.customRoleId);
+                    form.setValue('extraPermissions', assignment.extraPermissions);
+                  }}
+                  options={[
+                    { value: 'admin', label: t('role.admin') },
+                    { value: 'employee', label: t('role.employee') },
+                    ...(roles.data ?? []).map((r) => ({ value: `custom:${r.id}`, label: r.name })),
+                  ]}
                 />
               )}
             />

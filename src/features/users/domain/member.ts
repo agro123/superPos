@@ -13,6 +13,8 @@ export const memberSchema = z
     role: z.enum(ROLES),
     extraPermissions: z.array(z.enum(PERMISSIONS)),
     status: z.enum(MEMBER_STATUSES),
+    /** Rol personalizado (`roles/{id}`) si `role == 'custom'`. */
+    customRoleId: z.string().nullable().default(null),
   })
   .extend(auditFieldsSchema.shape);
 
@@ -23,6 +25,7 @@ export const memberUpdateSchema = z.object({
   role: z.enum(ROLES),
   extraPermissions: z.array(z.enum(PERMISSIONS)),
   status: z.enum(MEMBER_STATUSES),
+  customRoleId: z.string().nullable(),
 });
 
 export type MemberUpdate = z.infer<typeof memberUpdateSchema>;

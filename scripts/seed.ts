@@ -133,6 +133,7 @@ function businessWrites(business: SeedBusiness): [string, DocumentData][] {
           quantityDelta: product.stock,
           reason: 'Inventario inicial',
           saleId: null,
+          supplierId: null,
           ...audit(owner),
         },
       ]);

@@ -8,13 +8,24 @@ related: [catalog.md, ../adr/0003-firestore-offline-y-limites-de-transacciones.m
 
 # inventory — stock, movimientos y proveedores
 
-**Estado:** solo lectura.
+**Estado:** existencias, entradas y ajustes, reabastecimiento, bitácora y proveedores.
 
 | Pantalla                             | Ruta         | Permiso          |
 | ------------------------------------ | ------------ | ---------------- |
 | Inventario con alertas de stock bajo | `/inventory` | `inventory.view` |
 
-- Niveles con `stockLevelOf` (catálogo): `ok`, `low`, `out`, `untracked`. Filtro "solo alertas".
-- Modelo listo: `inventoryMovements` (inmutables) y `suppliers`, con reglas y pruebas.
+- **Existencias:** niveles con `stockLevelOf` (`ok`, `low`, `out`, `untracked`), filtro "solo
+  alertas". Con `inventory.adjust`: **Entrada** (unidades recibidas, proveedor opcional) y
+  **Ajuste** por conteo físico (unidades contadas; motivo obligatorio). `stockDelta` calcula la
+  diferencia y `recordStockChange` escribe `increment(delta)` + movimiento en un `writeBatch`.
+- **Alerta activa:** contador de productos bajo umbral o agotados en "Inventario" (barra lateral y
+  barra inferior), visible para todos los miembros.
+- **Reabastecer:** `reorderSuggestions` (puro) usa el ritmo de venta de los últimos 14 días:
+  agotados, bajo umbral o que se agotan antes de 3 días; sugiere unidades para cubrir 7/14/30 días
+  más el umbral. "Enviar pedido" arma el texto (`purchaseOrderText`) por WhatsApp al teléfono del
+  proveedor o por correo con el proveedor de correo configurado.
+- **Movimientos:** bitácora inmutable (ventas, anulaciones, entradas, ajustes) con quién y proveedor.
+  Las reglas solo permiten `supplierId` en movimientos `purchase`.
+- **Proveedores:** nombre, teléfono, correo.
 
-**Pendiente (Prompt 2):** ajustes y compras (movimiento + `increment` en un batch), proveedores.
+**Pendiente:** costo de compra por entrada (costo promedio), importación masiva, variantes.

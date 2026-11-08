@@ -7,4 +7,5 @@ export const settingsPages = {
   payments: () => import('./pages/PaymentsSettingsPage'),
   employees: () => import('./pages/EmployeesSettingsPage'),
   terminals: () => import('./pages/TerminalsSettingsPage'),
+  storefront: () => import('./pages/StorefrontSettingsPage'),
 };

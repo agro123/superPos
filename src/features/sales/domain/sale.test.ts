@@ -13,6 +13,7 @@ const line = (productId: string, quantity: number, voided = false): SaleLine => 
   taxRateBps: 0,
   discountMinor: money(0),
   voided,
+  unitCostMinor: null,
 });
 
 describe('saleStatusMachine (L8)', () => {

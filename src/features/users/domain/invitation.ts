@@ -16,6 +16,7 @@ export const invitationSchema = z
     extraPermissions: z.array(z.enum(PERMISSIONS)),
     businessId: z.string().min(1),
     businessName: z.string().min(1),
+    customRoleId: z.string().nullable().default(null),
   })
   .extend(auditFieldsSchema.shape);
 
@@ -28,6 +29,7 @@ export const invitationInputSchema = z.object({
     .pipe(z.email({ error: 'Escribe un email válido' })),
   role: z.enum(ROLES),
   extraPermissions: z.array(z.enum(PERMISSIONS)),
+  customRoleId: z.string().nullable(),
 });
 
 export type InvitationInput = z.infer<typeof invitationInputSchema>;

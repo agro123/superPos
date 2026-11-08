@@ -72,6 +72,7 @@ export default function PosPage() {
       name: product.name,
       priceMinor: product.priceMinor,
       taxRateBps: product.taxRateBps,
+      costMinor: product.costMinor,
       ...(product.trackStock ? { stock: Math.max(0, product.stock) } : {}),
     };
     if (remainingStock(cart.lines, cartProduct) <= 0) {

@@ -76,6 +76,7 @@ describe('sales', () => {
       quantityDelta: -1,
       reason: null,
       saleId: 'batch1',
+      supplierId: null,
       ...newAudit(EMPLOYEE),
     });
     await assertSucceeds(batch.commit());

@@ -105,7 +105,7 @@ Lecciones de SmartTable (detalle en [security.md](docs/architecture/security.md)
 | --- | --------------------------------------------------------------------- |
 | L1  | Venta y descuento de stock en el **mismo `writeBatch`** (`increment`) |
 | L2  | Firebase Auth; PIN solo local con PBKDF2 + sal + bloqueo (ADR 0008)   |
-| L3  | Nada sin autenticación                                                |
+| L3  | Nada sin autenticación (única excepción: catálogo público, ADR 0012)  |
 | L4  | Sin secretos en código                                                |
 | L5  | Sin servidor propio expuesto                                          |
 | L6  | Precio del catálogo; ventas inmutables (anular = documento `void`)    |

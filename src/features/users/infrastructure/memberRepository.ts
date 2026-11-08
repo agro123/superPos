@@ -23,11 +23,14 @@ import {
 } from '@/shared/infrastructure/firebase/firestore';
 import { trackWrite } from '@/shared/infrastructure/offline/trackWrite';
 import { invitationSchema, type Invitation, type InvitationInput } from '../domain/invitation';
+import { customRoleSchema, type CustomRole, type CustomRoleInput } from '../domain/customRole';
 import { memberSchema, type Member, type MemberUpdate } from '../domain/member';
 
 const db = () => getFirebase().db;
 const memberConverter = zodConverter(memberSchema);
 const invitationConverter = zodConverter(invitationSchema);
+const roleConverter = zodConverter(customRoleSchema);
+const rolesCol = (bid: string) => collection(db(), 'businesses', bid, 'roles');
 
 const membersCol = (bid: string) =>
   collection(db(), 'businesses', bid, 'members').withConverter(memberConverter);
@@ -61,6 +64,7 @@ export function inviteMember(
       email: input.email,
       role: input.role,
       extraPermissions: input.extraPermissions,
+      customRoleId: input.customRoleId,
       businessId: bid,
       businessName,
       ...createAudit(invitedBy),
@@ -101,6 +105,7 @@ export async function acceptInvitation(invitation: Invitation, user: Invitee): P
     email: user.email,
     role: invitation.role,
     extraPermissions: invitation.extraPermissions,
+    customRoleId: invitation.customRoleId,
     status: 'active',
     ...createAudit(user.uid),
   });
@@ -114,4 +119,37 @@ export async function acceptInvitation(invitation: Invitation, user: Invitee): P
   } catch (error) {
     throw mapFirebaseError(error);
   }
+}
+
+export const watchRoles = (bid: string): Subscribe<Synced<CustomRole>[]> =>
+  watchQuery(rolesCol(bid).withConverter(roleConverter));
+
+/**
+ * Crea o edita un rol. Al editar, actualiza en el mismo batch los permisos de los miembros que lo
+ * tienen (las reglas leen `extraPermissions`, no el rol: así no hay lecturas extra por petición).
+ */
+export function saveRole(
+  bid: string,
+  roleId: string | null,
+  input: CustomRoleInput,
+  members: readonly Pick<Member, 'id' | 'customRoleId'>[],
+  uid: string,
+): void {
+  const batch = writeBatch(db());
+  if (roleId) {
+    batch.update(doc(rolesCol(bid), roleId), { ...input, ...updateAudit() });
+    for (const member of members.filter((m) => m.customRoleId === roleId)) {
+      batch.update(doc(db(), 'businesses', bid, 'members', member.id), {
+        extraPermissions: input.permissions,
+        ...updateAudit(),
+      });
+    }
+  } else {
+    batch.set(doc(rolesCol(bid)), { ...input, ...createAudit(uid) });
+  }
+  trackWrite(batch.commit(), 'roles.save');
+}
+
+export function deleteRole(bid: string, roleId: string): void {
+  trackWrite(deleteDoc(doc(rolesCol(bid), roleId)), 'roles.delete');
 }

@@ -13,6 +13,8 @@ export const inventoryMovementSchema = z
     quantityDelta: z.number(),
     reason: optionalText(200),
     saleId: z.string().nullable(),
+    /** Proveedor de una compra (entrada de mercancía). */
+    supplierId: z.string().nullable(),
   })
   .extend(auditFieldsSchema.shape);
 

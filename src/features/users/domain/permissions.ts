@@ -21,7 +21,8 @@ export const PERMISSIONS = [
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-export const ROLES = ['admin', 'employee'] as const;
+/** `custom`: rol personalizado del negocio; sus permisos vienen todos de `extraPermissions`. */
+export const ROLES = ['admin', 'employee', 'custom'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
@@ -34,6 +35,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     'customers.view',
     'customers.manage',
   ],
+  custom: [],
 };
 
 /** Datos mínimos de un miembro para resolver permisos. */

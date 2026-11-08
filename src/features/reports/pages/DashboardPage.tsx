@@ -12,6 +12,7 @@ import { Link } from 'react-router';
 import { useCurrentUser } from '@/features/auth';
 import { useActiveBusiness } from '@/features/business';
 import { stockLevelOf, useProducts } from '@/features/catalog';
+import { CashOverview } from '@/features/cash';
 import { usePermission, type Permission } from '@/features/users';
 import { startOfDayInZone } from '@/shared/domain/dates';
 import { formatMoney, formatNumber } from '@/shared/lib/formatters';
@@ -123,6 +124,19 @@ export default function DashboardPage() {
         description={t('dashboard.description', { business: business.name })}
       />
       {canViewReports ? <Metrics /> : null}
+      {canViewReports ? (
+        <section aria-labelledby="dashboard-cash" className="flex flex-col gap-3">
+          <h2 id="dashboard-cash" className="text-lg font-semibold text-text">
+            {t('cash.overview.title')}
+          </h2>
+          <CashOverview
+            businessId={business.id}
+            currency={business.currency}
+            timezone={business.timezone}
+            closedLimit={2}
+          />
+        </section>
+      ) : null}
       <section aria-labelledby="quick-actions" className="flex flex-col gap-3">
         <h2 id="quick-actions" className="text-lg font-semibold text-text">
           {t('dashboard.quickActions')}

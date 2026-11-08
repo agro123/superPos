@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLiveQuery } from '@/shared/hooks/useLiveQuery';
+import { t } from '@/shared/lib/i18n';
+import type { Role } from '../domain/permissions';
 import type { Invitation } from '../domain/invitation';
 import {
   acceptInvitation,
@@ -9,9 +11,22 @@ import {
   updateMember,
   watchInvitations,
   watchMembers,
+  watchRoles,
+  saveRole,
+  deleteRole,
 } from '../infrastructure/memberRepository';
 
 export const useMembers = (bid: string) => useLiveQuery(['members', bid], watchMembers(bid));
+export const useRoles = (bid: string) => useLiveQuery(['roles', bid], watchRoles(bid));
+
+/** Nombre visible del rol de un miembro o invitación (los personalizados, por su nombre). */
+export function useRoleLabel(bid: string): (role: Role, customRoleId: string | null) => string {
+  const roles = useRoles(bid);
+  return (role, customRoleId) =>
+    role === 'custom'
+      ? (roles.data?.find((r) => r.id === customRoleId)?.name ?? t('role.custom'))
+      : t(`role.${role}`);
+}
 export const useBusinessInvitations = (bid: string) =>
   useLiveQuery(['invitations', bid], watchInvitations(bid));
 
@@ -39,4 +54,4 @@ export function useAcceptInvitation() {
 }
 
 /** Escrituras de administración de miembros: optimistas y encoladas offline. */
-export const memberWrites = { updateMember, inviteMember, revokeInvitation };
+export const memberWrites = { updateMember, inviteMember, revokeInvitation, saveRole, deleteRole };

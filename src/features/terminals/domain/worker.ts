@@ -8,7 +8,7 @@ export const terminalWorkerSchema = z.object({
   id: z.string().min(1),
   displayName: z.string().min(1),
   email: z.string().min(3),
-  role: z.enum(['admin', 'employee']),
+  role: z.enum(['admin', 'employee', 'custom']),
   status: z.enum(['active', 'disabled']),
 });
 export type TerminalWorker = z.infer<typeof terminalWorkerSchema>;

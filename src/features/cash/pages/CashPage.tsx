@@ -2,20 +2,15 @@ import { Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { useCurrentUser } from '@/features/auth';
 import { useActiveBusiness } from '@/features/business';
+import { useEmailPreference } from '@/features/storefront';
 import { Can, usePermission } from '@/features/users';
 import { useOnlineStatus } from '@/shared/hooks/useSyncSummary';
 import { useToast } from '@/shared/hooks/useToast';
 import { t } from '@/shared/lib/i18n';
 import { Badge, Button, EmptyState, Modal, PageHeader, Skeleton, Text } from '@/shared/ui';
-import {
-  useCurrentShift,
-  useRecentShifts,
-  useShiftsActivity,
-  useShiftSummary,
-} from '../application/useCash';
-import { useWorkerNames } from '../application/useWorkerNames';
-import type { CashShift } from '../domain/cashShift';
-import { shiftMovements } from '../domain/movements';
+import { useCurrentShift, useRecentShifts, useShiftSummary } from '../application/useCash';
+import { useShiftDetail } from '../application/useShiftDetail';
+import { CashOverview } from '../ui/CashOverview';
 import { ShiftMovementsDialog } from '../ui/ShiftMovementsDialog';
 import { addExpense, closeShift, openShift, setShiftClosing } from '../application/cashActions';
 import { CurrentShiftPanel } from '../ui/CurrentShiftPanel';
@@ -36,10 +31,8 @@ export default function CashPage() {
   const live = useShiftSummary(business.id, shift);
   const [modal, setModal] = useState<ModalId>(null);
   const canSeeMovements = usePermission('reports.view');
-  const workerName = useWorkerNames(business.id);
-  const [viewing, setViewing] = useState<CashShift | null>(null);
-  const viewed = useShiftsActivity(business.id, viewing ? [viewing] : []);
-  const viewedActivity = viewed.activity[0];
+  const detail = useShiftDetail();
+  const email = useEmailPreference(business.id);
   const saved = (title: string) => {
     toast({ title, description: online ? undefined : t('common.savedOffline'), tone: 'success' });
   };
@@ -81,7 +74,7 @@ export default function CashPage() {
                 <Button
                   variant="ghost"
                   onClick={() => {
-                    setViewing(shift);
+                    detail.setViewing(shift);
                   }}
                 >
                   {t('cash.movements')}
@@ -129,22 +122,36 @@ export default function CashPage() {
           }
         />
       )}
+      {canSeeMovements ? (
+        <section aria-labelledby="all-cash" className="flex flex-col gap-3">
+          <h2 id="all-cash" className="text-lg font-semibold text-text">
+            {t('cash.overview.title')}
+          </h2>
+          <CashOverview
+            businessId={business.id}
+            currency={business.currency}
+            timezone={business.timezone}
+          />
+        </section>
+      ) : null}
       <ShiftHistory
         shifts={shifts.data ?? []}
         loading={shifts.isPending}
         currency={business.currency}
         timezone={business.timezone}
-        onSelect={canSeeMovements ? setViewing : undefined}
+        onSelect={canSeeMovements ? detail.setViewing : undefined}
       />
       <ShiftMovementsDialog
-        shift={viewing}
-        movements={viewedActivity ? shiftMovements(viewedActivity) : []}
-        loading={viewed.loading}
+        shift={detail.viewing}
+        movements={detail.movements}
+        loading={detail.loading}
         currency={business.currency}
         timezone={business.timezone}
-        workerName={workerName}
+        workerName={detail.workerName}
+        report={detail.report}
+        email={email}
         onClose={() => {
-          setViewing(null);
+          detail.setViewing(null);
         }}
       />
       <Modal

@@ -9,6 +9,8 @@ export interface BottomNavItem {
   icon: ReactNode;
   /** Coincidencia exacta de ruta (para "/"). */
   end?: boolean;
+  /** Contador de alertas, anunciado junto al nombre. */
+  badge?: { count: number; label: string };
 }
 
 export interface BottomNavProps {
@@ -41,8 +43,20 @@ export function BottomNav({ items, className }: BottomNavProps) {
                 )
               }
             >
-              <span aria-hidden>{item.icon}</span>
-              <span className="max-w-full truncate px-1">{item.label}</span>
+              <span aria-hidden className="relative">
+                {item.icon}
+                {item.badge && item.badge.count > 0 ? (
+                  <span className="absolute -top-1 -right-2 rounded-full bg-danger px-1 text-[10px] leading-4 font-semibold text-danger-fg">
+                    {item.badge.count}
+                  </span>
+                ) : null}
+              </span>
+              <span className="max-w-full truncate px-1">
+                {item.label}
+                {item.badge && item.badge.count > 0 ? (
+                  <span className="sr-only"> {item.badge.label}</span>
+                ) : null}
+              </span>
             </NavLink>
           </li>
         ))}

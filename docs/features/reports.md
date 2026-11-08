@@ -21,4 +21,17 @@ related: [sales.md]
 - **Caja por trabajador:** tabla del periodo (componente de `cash`): turnos abiertos/cerrados,
   ventas, anulaciones, efectivo, vueltos, gastos, otros medios, fiado, abonos y diferencia de arqueo.
 
-**Pendiente:** ventas por horario, margen, exportación, agregados en servidor.
+- **Para decidir** (`domain/insights.ts`, puro): ventas por hora del día en la zona del negocio
+  (con hora pico), mezcla de medios de pago (efectivo neto de vuelto, fiado aparte), margen
+  estimado por producto con el costo **actual** del catálogo (y qué parte de lo vendido cubre) y
+  exportación CSV de las ventas del periodo (con BOM para Excel).
+- Gráficos: `BarChart` genérico de una serie (tooltip por ratón y teclado, vista de tabla).
+
+- Pestañas: **Ventas** (resumen, por día, top, por hora, medios de pago, CSV), **Ganancia**
+  (`profitReport`: margen por producto y categoría, productos bajo el costo, sin costo, gastos de
+  caja, merma por ajustes valorada al costo y resultado estimado) y **Trabajadores**
+  (`workerPerformance` + caja por trabajador).
+- **Exportar:** Excel (`.xlsx` propio con `fflate`, una hoja por sección, montos como números) y PDF
+  (`jspdf` bajo demanda, tablas con salto de página).
+
+**Pendiente:** asistente con I.A., agregados en servidor.

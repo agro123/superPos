@@ -9,6 +9,8 @@ export interface NavItem {
   icon: ReactNode;
   /** Coincidencia exacta de ruta (para "/"). */
   end?: boolean;
+  /** Contador de alertas (p. ej. productos con stock bajo); se anuncia junto al nombre. */
+  badge?: { count: number; label: string };
 }
 
 export interface NavSection {
@@ -58,6 +60,12 @@ export function AppSidebar({ sections, brand, footer, onNavigate, className }: A
                   >
                     <span aria-hidden>{item.icon}</span>
                     {item.label}
+                    {item.badge && item.badge.count > 0 ? (
+                      <span className="ml-auto rounded-full bg-danger px-2 text-xs font-semibold text-danger-fg">
+                        {item.badge.count}
+                        <span className="sr-only"> {item.badge.label}</span>
+                      </span>
+                    ) : null}
                   </NavLink>
                 </li>
               ))}

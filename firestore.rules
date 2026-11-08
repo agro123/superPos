@@ -39,6 +39,7 @@ service cloud.firestore {
     }
 
     function rolePermissions(r) {
+      // `custom` no trae permisos: todos vienen de `extraPermissions` (copiados de su rol, ver roles/).
       return r == 'admin' ? adminPermissions() : (r == 'employee' ? employeePermissions() : []);
     }
 
@@ -107,6 +108,13 @@ service cloud.firestore {
 
     function auditFields() {
       return ['createdAt', 'updatedAt', 'createdBy', 'schemaVersion'];
+    }
+
+    /** Como `hasExactly`, pero admite además los campos de `optional`. */
+    function hasFields(fields, optional) {
+      let all = fields.concat(auditFields());
+      return request.resource.data.keys().hasAll(all)
+        && request.resource.data.keys().hasOnly(all.concat(optional));
     }
 
     function hasExactly(fields) {
@@ -203,6 +211,58 @@ service cloud.firestore {
         || (from == 'deleted' && to == 'active');
     }
 
+    // ---------- Catálogo público (única lectura sin autenticación; ADR 0012) ----------
+    // Solo contiene lo que el dueño publica: nombre, precio, foto, disponibilidad y WhatsApp.
+
+    function validSlug(slug) {
+      return slug is string && slug.matches('^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$');
+    }
+
+    function catalogPath(slug) {
+      return /databases/$(database)/documents/publicCatalogs/$(slug);
+    }
+
+    /** `getAfter`: el catálogo puede crearse en el mismo batch que sus productos. */
+    function catalogOwnerCan(slug) {
+      return hasPermission(getAfter(catalogPath(slug)).data.businessId, 'catalog.manage');
+    }
+
+    match /publicCatalogs/{slug} {
+      // Un slug inexistente se puede consultar (responde "no existe"): no revela nada.
+      allow get: if resource == null
+        || resource.data.enabled == true
+        || (signedIn() && hasPermission(resource.data.businessId, 'catalog.manage'));
+      allow create, update: if validSlug(slug)
+        && hasExactly(['businessId', 'enabled', 'title', 'description', 'whatsapp', 'currency'])
+        && hasPermission(request.resource.data.businessId, 'catalog.manage')
+        && (resource == null || request.resource.data.businessId == resource.data.businessId)
+        && request.resource.data.enabled is bool
+        // Publicar exige que el negocio haya elegido este slug; despublicar uno viejo, no.
+        && (request.resource.data.enabled == false
+          || getAfter(/databases/$(database)/documents/businesses/$(request.resource.data.businessId)/settings/publicCatalog).data.slug == slug)
+        && isText(request.resource.data.title, 1, 80)
+        && isOptionalText(request.resource.data.description, 300)
+        && (request.resource.data.whatsapp == null || request.resource.data.whatsapp.matches('^[0-9]{8,15}$'))
+        && request.resource.data.currency in currencies()
+        && (resource == null ? isNewAudit() : isUpdateAudit());
+
+      match /products/{productId} {
+        allow read: if !exists(catalogPath(slug))
+          || get(catalogPath(slug)).data.enabled == true
+          || (signedIn() && hasPermission(get(catalogPath(slug)).data.businessId, 'catalog.manage'));
+        allow create, update: if signedIn() && catalogOwnerCan(slug)
+          && hasExactly(['name', 'priceMinor', 'imageUrl', 'categoryName', 'available', 'sortOrder'])
+          && isText(request.resource.data.name, 1, 120)
+          && isMoney(request.resource.data.priceMinor)
+          && isOptionalText(request.resource.data.imageUrl, 2048)
+          && isOptionalText(request.resource.data.categoryName, 40)
+          && request.resource.data.available is bool
+          && request.resource.data.sortOrder is int
+          && (resource == null ? isNewAudit() : isUpdateAudit());
+        allow delete: if signedIn() && catalogOwnerCan(slug);
+      }
+    }
+
     // ---------- Vinculación de terminales por QR ----------
     // El id es sha256(código del QR): solo quien vio el QR puede leer o aprobar la solicitud.
 
@@ -290,8 +350,17 @@ service cloud.firestore {
 
       // ----- members/{memberUid} -----
 
+      /** Un rol personalizado existe en `roles/` y solo se usa con `role == 'custom'`. */
+      function validCustomRole(d) {
+        let roleId = d.get('customRoleId', null);
+        return d.role == 'custom'
+          ? (roleId is string && exists(/databases/$(database)/documents/businesses/$(bid)/roles/$(roleId)))
+          : roleId == null;
+      }
+
       function validMemberAccess(d) {
-        return d.role in ['admin', 'employee']
+        return d.role in ['admin', 'employee', 'custom']
+          && validCustomRole(d)
           && d.extraPermissions is list
           && d.extraPermissions.hasOnly(adminPermissions())
           && d.status in ['active', 'disabled'];
@@ -304,7 +373,7 @@ service cloud.firestore {
       match /members/{memberUid} {
         allow read: if isMember(bid) || isActiveTerminal(bid);
         allow create: if signedIn() && memberUid == uid()
-          && hasExactly(['displayName', 'email', 'role', 'extraPermissions', 'status'])
+          && hasFields(['displayName', 'email', 'role', 'extraPermissions', 'status'], ['customRoleId'])
           && isText(request.resource.data.displayName, 1, 80)
           && request.resource.data.email == request.auth.token.email
           && validMemberAccess(request.resource.data)
@@ -319,15 +388,30 @@ service cloud.firestore {
             || (verifiedEmail()
               && exists(/databases/$(database)/documents/businesses/$(bid)/invitations/$(request.auth.token.email))
               && request.resource.data.role == invitationFor(request.auth.token.email).role
-              && request.resource.data.extraPermissions == invitationFor(request.auth.token.email).extraPermissions)
+              && request.resource.data.extraPermissions == invitationFor(request.auth.token.email).extraPermissions
+              && request.resource.data.get('customRoleId', null) == invitationFor(request.auth.token.email).get('customRoleId', null))
           );
         // Nadie cambia su propio acceso, y el dueño no puede perder el suyo.
         allow update: if hasPermission(bid, 'users.manage')
           && memberUid != uid()
           && memberUid != get(businessPath(bid)).data.ownerUid
-          && onlyChanges(['role', 'extraPermissions', 'status'])
+          && onlyChanges(['role', 'extraPermissions', 'status', 'customRoleId'])
           && validMemberAccess(request.resource.data)
           && isUpdateAudit();
+      }
+
+      // ----- roles/{roleId}: roles personalizados (plantillas de permisos) -----
+
+      match /roles/{roleId} {
+        allow read: if isMember(bid);
+        allow create, update: if hasPermission(bid, 'users.manage')
+          && hasExactly(['name', 'permissions'])
+          && isText(request.resource.data.name, 2, 40)
+          && request.resource.data.permissions is list
+          && request.resource.data.permissions.size() >= 1
+          && request.resource.data.permissions.hasOnly(adminPermissions())
+          && (resource == null ? isNewAudit() : isUpdateAudit());
+        allow delete: if hasPermission(bid, 'users.manage');
       }
 
       // ----- invitations/{email} -----
@@ -336,11 +420,12 @@ service cloud.firestore {
         allow read: if hasPermission(bid, 'users.manage')
           || (verifiedEmail() && resource.data.email == request.auth.token.email);
         allow create, update: if (hasPermission(bid, 'users.manage') || isPlatformAdmin())
-          && hasExactly(['email', 'role', 'extraPermissions', 'businessId', 'businessName'])
+          && hasFields(['email', 'role', 'extraPermissions', 'businessId', 'businessName'], ['customRoleId'])
           && request.resource.data.email == email
           && request.resource.data.businessId == bid
           && isText(request.resource.data.businessName, 1, 80)
-          && request.resource.data.role in ['admin', 'employee']
+          && request.resource.data.role in ['admin', 'employee', 'custom']
+          && validCustomRole(request.resource.data)
           && request.resource.data.extraPermissions is list
           && request.resource.data.extraPermissions.hasOnly(adminPermissions())
           && (resource == null ? isNewAudit() : isUpdateAudit());
@@ -361,7 +446,18 @@ service cloud.firestore {
           || (docId == 'paymentMethods'
             && hasExactly(['enabled'])
             && d.enabled is list && d.enabled.size() >= 1
-            && d.enabled.hasOnly(['cash', 'card', 'transfer', 'wallet', 'other']));
+            && d.enabled.hasOnly(['cash', 'card', 'transfer', 'wallet', 'other']))
+          || (docId == 'publicCatalog'
+            && hasExactly(['enabled', 'slug', 'title', 'description', 'whatsapp', 'showOutOfStock', 'visibleProductIds', 'emailProvider', 'emailCustomUrl'])
+            && d.enabled is bool
+            && validSlug(d.slug)
+            && isText(d.title, 1, 80)
+            && isOptionalText(d.description, 300)
+            && (d.whatsapp == null || (d.whatsapp is string && d.whatsapp.matches('^[0-9]{8,15}$')))
+            && d.showOutOfStock is bool
+            && d.visibleProductIds is list && d.visibleProductIds.size() <= 500
+            && d.emailProvider in ['app', 'gmail', 'outlook', 'custom']
+            && (d.emailCustomUrl == null || (isText(d.emailCustomUrl, 8, 500) && d.emailCustomUrl.matches('^https://.*'))));
       }
 
       match /settings/{docId} {
@@ -438,11 +534,14 @@ service cloud.firestore {
 
       match /inventoryMovements/{movementId} {
         allow read: if hasPermission(bid, 'inventory.view');
-        allow create: if hasExactly(['productId', 'type', 'quantityDelta', 'reason', 'saleId'])
+        allow create: if hasExactly(['productId', 'type', 'quantityDelta', 'reason', 'saleId', 'supplierId'])
           && isText(request.resource.data.productId, 1, 128)
           && request.resource.data.quantityDelta is number
           && isOptionalText(request.resource.data.reason, 200)
           && isOptionalId(request.resource.data.saleId)
+          && isOptionalId(request.resource.data.supplierId)
+          // Solo una compra (entrada de mercancía) puede citar un proveedor.
+          && (request.resource.data.supplierId == null || request.resource.data.type == 'purchase')
           && isNewAudit()
           && (
             (request.resource.data.type in ['adjustment', 'purchase'] && hasPermission(bid, 'inventory.adjust'))

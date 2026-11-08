@@ -55,6 +55,7 @@ export function buildCheckout(input: CheckoutInput): Result<Checkout> {
     taxRateBps: line.taxRateBps,
     discountMinor: ZERO_MONEY,
     voided: false,
+    unitCostMinor: line.unitCost ?? null,
   }));
   return ok({
     sale: {

@@ -1,66 +1,36 @@
-import { Boxes } from 'lucide-react';
 import { useState } from 'react';
 import { useActiveBusiness } from '@/features/business';
-import { stockLevelOf, useProducts, type Product, type StockLevel } from '@/features/catalog';
+import { stockLevelOf, useProducts, type Product } from '@/features/catalog';
+import { useEmailPreference } from '@/features/storefront';
+import { useMembers } from '@/features/users';
+import { useOnlineStatus } from '@/shared/hooks/useSyncSummary';
+import { useToast } from '@/shared/hooks/useToast';
 import { errorMessage } from '@/shared/lib/errorMessage';
 import { formatNumber } from '@/shared/lib/formatters';
 import { t } from '@/shared/lib/i18n';
-import {
-  Badge,
-  Button,
-  DataTable,
-  EmptyState,
-  PageHeader,
-  StatCard,
-  Switch,
-  type BadgeTone,
-  type DataTableColumn,
-} from '@/shared/ui';
+import { Button, EmptyState, PageHeader, StatCard, Tabs } from '@/shared/ui';
+import { useMovements, useSuppliers } from '../application/useInventory';
+import type { StockChangeMode } from '../domain/stockChange';
+import { MovementsTab } from '../ui/MovementsTab';
+import { ReorderTab } from '../ui/ReorderTab';
+import { StockChangeDialog } from '../ui/StockChangeDialog';
+import { StockTab } from '../ui/StockTab';
+import { SuppliersTab } from '../ui/SuppliersTab';
 
-const LEVEL_TONE: Record<StockLevel, BadgeTone> = {
-  ok: 'success',
-  low: 'warning',
-  out: 'danger',
-  untracked: 'neutral',
-};
-const LEVEL_ORDER: Record<StockLevel, number> = { out: 0, low: 1, ok: 2, untracked: 3 };
-
-/** Inventario de solo lectura con alertas de stock bajo. */
+/** Inventario: existencias y alertas, reabastecimiento, bitácora y proveedores. */
 export default function InventoryPage() {
   const { business } = useActiveBusiness();
+  const toast = useToast();
+  const online = useOnlineStatus();
   const products = useProducts(business.id);
-  const [onlyAlerts, setOnlyAlerts] = useState(false);
+  const suppliers = useSuppliers(business.id);
+  const movements = useMovements(business.id);
+  const members = useMembers(business.id);
+  const email = useEmailPreference(business.id);
+  const [target, setTarget] = useState<{ product: Product; mode: StockChangeMode } | null>(null);
   const tracked = (products.data ?? []).filter((p) => p.trackStock && p.active);
-  const count = (level: StockLevel) => tracked.filter((p) => stockLevelOf(p) === level).length;
-  const rows = onlyAlerts
-    ? tracked.filter((p) => ['low', 'out'].includes(stockLevelOf(p)))
-    : tracked;
-
-  const columns: DataTableColumn<Product>[] = [
-    { id: 'name', header: t('common.name'), cell: (p) => p.name, sortValue: (p) => p.name },
-    {
-      id: 'stock',
-      header: t('catalog.col.stock'),
-      align: 'right',
-      cell: (p) => formatNumber(p.stock),
-      sortValue: (p) => p.stock,
-    },
-    {
-      id: 'threshold',
-      header: t('inventory.threshold'),
-      align: 'right',
-      hideOnMobile: true,
-      cell: (p) => formatNumber(p.lowStockThreshold),
-    },
-    {
-      id: 'level',
-      header: t('common.status'),
-      sortValue: (p) => LEVEL_ORDER[stockLevelOf(p)],
-      cell: (p) => (
-        <Badge tone={LEVEL_TONE[stockLevelOf(p)]}>{t(`inventory.level.${stockLevelOf(p)}`)}</Badge>
-      ),
-    },
-  ];
+  const count = (level: 'low' | 'out') => tracked.filter((p) => stockLevelOf(p) === level).length;
+  const workerName = (uid: string) => members.data?.find((m) => m.id === uid)?.displayName ?? '—';
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -90,31 +60,73 @@ export default function InventoryPage() {
           action={<Button onClick={() => void products.refetch()}>{t('common.retry')}</Button>}
         />
       ) : (
-        <DataTable
-          caption={t('inventory.table')}
-          columns={columns}
-          rows={rows}
-          getRowId={(p) => p.id}
-          loading={products.isPending}
-          searchText={(p) => p.name}
-          searchPlaceholder={t('inventory.search')}
-          toolbar={
-            <div className="flex items-center gap-2 sm:ml-auto">
-              <Switch id="only-alerts" checked={onlyAlerts} onCheckedChange={setOnlyAlerts} />
-              <label htmlFor="only-alerts" className="text-sm text-text">
-                {t('inventory.onlyAlerts')}
-              </label>
-            </div>
-          }
-          emptyState={
-            <EmptyState
-              icon={<Boxes />}
-              title={onlyAlerts ? t('inventory.noAlerts') : t('inventory.empty')}
-              description={onlyAlerts ? undefined : t('inventory.emptyHint')}
-            />
-          }
+        <Tabs
+          label={t('inventory.sections')}
+          items={[
+            {
+              value: 'stock',
+              label: t('inventory.tab.stock'),
+              content: (
+                <StockTab
+                  products={tracked}
+                  loading={products.isPending}
+                  onChange={(product, mode) => {
+                    setTarget({ product, mode });
+                  }}
+                />
+              ),
+            },
+            {
+              value: 'reorder',
+              label: t('inventory.tab.reorder'),
+              content: (
+                <ReorderTab
+                  businessId={business.id}
+                  businessName={business.name}
+                  suppliers={suppliers.data ?? []}
+                  email={email}
+                />
+              ),
+            },
+            {
+              value: 'movements',
+              label: t('inventory.tab.movements'),
+              content: (
+                <MovementsTab
+                  movements={movements.data ?? []}
+                  loading={movements.isPending}
+                  products={products.data ?? []}
+                  suppliers={suppliers.data ?? []}
+                  workerName={workerName}
+                  timezone={business.timezone}
+                />
+              ),
+            },
+            {
+              value: 'suppliers',
+              label: t('inventory.tab.suppliers'),
+              content: (
+                <SuppliersTab
+                  businessId={business.id}
+                  suppliers={suppliers.data ?? []}
+                  loading={suppliers.isPending}
+                />
+              ),
+            },
+          ]}
         />
       )}
+      <StockChangeDialog
+        businessId={business.id}
+        target={target}
+        suppliers={suppliers.data ?? []}
+        onClose={() => {
+          setTarget(null);
+        }}
+        onSaved={() => {
+          toast({ title: online ? t('common.saved') : t('common.savedOffline'), tone: 'success' });
+        }}
+      />
     </div>
   );
 }

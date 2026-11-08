@@ -29,5 +29,9 @@ related: [../adr/0009-turnos-de-caja.md]
 - **Movimientos por trabajador** (dueño/admin, `reports.view`): clic en un turno o "Movimientos" →
   línea de tiempo (`shiftMovements`) de apertura, ventas, anulaciones, gastos, abonos y cierre, con
   quién hizo cada uno, filtrable por trabajador, y totales por persona (`cashByWorker`).
-- **Reporte "Caja por trabajador"** (`CashByWorkerReport`, en Reportes): mismos totales sobre los
+- **Todas las cajas** (Inicio y Caja, con `reports.view`): turnos abiertos de cada dispositivo en
+  tiempo real (ventas y efectivo esperado) y últimos cierres con su diferencia; se ve desde cualquier
+  lugar porque los datos están en la nube. El detalle de un turno envía su resumen por WhatsApp o
+  correo (`shiftReportText`).
+- **Reporte "Caja por trabajador" (`CashByWorkerReport`, en Reportes): mismos totales sobre los
   turnos del periodo (hasta 200 turnos; ventas y abonos con `in` en bloques de 30).

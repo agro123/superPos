@@ -38,4 +38,9 @@ related: [../adr/0003-firestore-offline-y-limites-de-transacciones.md, ../adr/00
   pagos y fiado que la original (caja, reportes y saldos la restan); `terminalId` de quien anula.
   `saleWriter.recordVoid` devuelve el stock (`increment(+q)`) con movimientos `void` en el mismo batch.
 
+- **Compartir ticket:** imagen PNG (canvas, 80 mm) o PDF (jsPDF bajo demanda) con la hoja nativa de
+  compartir si el navegador admite archivos (si no, se descarga), y el ticket en texto por WhatsApp
+  (`wa.me`, al número del cliente si lo tiene) o correo con el proveedor configurado.
+- Cada línea guarda `unitCostMinor` (costo del catálogo al vender) para el margen exacto.
+
 **Pendiente:** pagos electrónicos integrados (ADR 0007) y facturación electrónica.

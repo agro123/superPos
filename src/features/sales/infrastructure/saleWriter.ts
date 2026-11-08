@@ -40,6 +40,7 @@ export const saleWriter: SaleWriter = {
         quantityDelta: -quantity,
         reason: null,
         saleId: id,
+        supplierId: null,
         ...createAudit(uid),
       });
     }
@@ -66,6 +67,7 @@ export const saleWriter: SaleWriter = {
         quantityDelta: quantity,
         reason: voidSale.voidReason,
         saleId: voidSale.voidedSaleId,
+        supplierId: null,
         ...createAudit(uid),
       });
     }

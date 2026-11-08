@@ -12,4 +12,5 @@ export {
 export type { Member } from './domain/member';
 export { Can } from './ui/Can';
 export { EmployeesPanel } from './ui/EmployeesPanel';
+export { RolesPanel } from './ui/RolesPanel';
 export { PendingInvitations } from './ui/PendingInvitations';

@@ -74,7 +74,8 @@
 
   /* Capas */
   --sp-z-sticky: 20;
-  --sp-z-dropdown: 30;
+  /* Por encima de modal: los menús y selects se abren también dentro de diálogos (portal). */
+  --sp-z-dropdown: 55;
   --sp-z-overlay: 40;
   --sp-z-modal: 50;
   --sp-z-toast: 60;

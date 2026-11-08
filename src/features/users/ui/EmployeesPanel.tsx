@@ -11,7 +11,12 @@ import {
   Text,
   type DataTableColumn,
 } from '@/shared/ui';
-import { memberWrites, useBusinessInvitations, useMembers } from '../application/useMembers';
+import {
+  memberWrites,
+  useBusinessInvitations,
+  useMembers,
+  useRoleLabel,
+} from '../application/useMembers';
 import type { Member } from '../domain/member';
 import { InviteMemberForm } from './InviteMemberForm';
 import { MemberEditor } from './MemberEditor';
@@ -33,6 +38,7 @@ export function EmployeesPanel({
   const members = useMembers(businessId);
   const invitations = useBusinessInvitations(businessId);
   const [editing, setEditing] = useState<Member | null>(null);
+  const roleLabel = useRoleLabel(businessId);
   const editable = (member: Member) => member.id !== ownerUid && member.id !== currentUid;
 
   const columns: DataTableColumn<Member>[] = [
@@ -48,7 +54,9 @@ export function EmployeesPanel({
       header: t('employees.role'),
       cell: (m) => (
         <span className="flex flex-wrap gap-1">
-          <Badge tone={m.role === 'admin' ? 'primary' : 'neutral'}>{t(`role.${m.role}`)}</Badge>
+          <Badge tone={m.role === 'admin' ? 'primary' : 'neutral'}>
+            {roleLabel(m.role, m.customRoleId)}
+          </Badge>
           {m.id === ownerUid ? <Badge tone="info">{t('employees.owner')}</Badge> : null}
           {m.id === currentUid ? <Badge>{t('employees.you')}</Badge> : null}
         </span>
@@ -116,7 +124,7 @@ export function EmployeesPanel({
             {invitations.data.map((invitation) => (
               <li key={invitation.id} className="flex items-center justify-between gap-2 px-4 py-2">
                 <span className="text-sm text-text">
-                  {invitation.email} · {t(`role.${invitation.role}`)}
+                  {invitation.email} · {roleLabel(invitation.role, invitation.customRoleId)}
                   {invitation.pendingSync ? (
                     <Badge className="ml-2">{t('common.pendingSync')}</Badge>
                   ) : null}

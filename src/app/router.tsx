@@ -11,6 +11,7 @@ import { reportsPages } from '@/features/reports';
 import { restaurantPages } from '@/features/restaurant';
 import { salesPages } from '@/features/sales';
 import { settingsPages } from '@/features/settings';
+import { storefrontPages } from '@/features/storefront';
 import { terminalsPages } from '@/features/terminals';
 import type { Permission } from '@/features/users';
 import { RequireAuth } from './guards/RequireAuth';
@@ -46,6 +47,8 @@ export const routes: RouteObject[] = [
       { path: '/login', lazy: page(authPages.login) },
       // Terminal POS: identidad propia (anónima) de la instalación, fuera de RequireAuth.
       { path: '/terminal', lazy: page(terminalsPages.terminal) },
+      // Catálogo público: sin sesión (ADR 0012).
+      { path: '/c/:slug', lazy: page(storefrontPages.publicCatalog) },
       {
         element: <RequireAuth />,
         children: [
@@ -101,6 +104,7 @@ export const routes: RouteObject[] = [
                               { path: 'modules', lazy: page(settingsPages.modules) },
                               { path: 'taxes', lazy: page(settingsPages.taxes) },
                               { path: 'payments', lazy: page(settingsPages.payments) },
+                              { path: 'storefront', lazy: page(settingsPages.storefront) },
                               guarded('employees', 'users.manage', settingsPages.employees),
                               guarded('terminals', 'users.manage', settingsPages.terminals),
                             ],

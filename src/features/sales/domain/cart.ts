@@ -8,6 +8,8 @@ export interface CartLine {
   unitPrice: Money;
   taxRateBps: number;
   quantity: number;
+  /** Costo unitario del catálogo al agregar (para el margen). */
+  unitCost?: Money | null;
   /** Tope por stock disponible; ausente si el producto no controla stock. */
   maxQuantity?: number;
 }
@@ -20,6 +22,7 @@ export interface CartProduct {
   taxRateBps: number;
   /** Stock disponible si el producto lo controla. */
   stock?: number;
+  costMinor?: Money | null;
 }
 
 /** Unidades que aún se pueden agregar de un producto (`Infinity` si no controla stock). */
@@ -50,6 +53,7 @@ export function addToCart(
       name: product.name,
       unitPrice: product.priceMinor,
       taxRateBps: product.taxRateBps,
+      unitCost: product.costMinor ?? null,
       quantity: Math.min(quantity, product.stock ?? Infinity),
       ...(product.stock === undefined ? {} : { maxQuantity: product.stock }),
     },

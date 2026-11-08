@@ -17,6 +17,7 @@ const sale: Sale = {
       taxRateBps: 0,
       discountMinor: money(0),
       voided: false,
+      unitCostMinor: null,
     },
   ],
   subtotalMinor: money(6000),
