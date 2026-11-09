@@ -1,11 +1,10 @@
 # restaurant
 
-Módulo vertical activable: mesas, zonas y comandas.
+Módulo vertical activable: tablero de mesas, comandas por rondas, pantalla de cocina y cobro en el POS.
 
-- **Entidades:** `Zone`, `Table`, `tableStatusMachine`, `orderStatusMachine`
-- **Permisos:** miembro + módulo `restaurant` activo
-- **Estado:** Marcador; dominio y reglas listos.
-- **API pública:** `index.ts` (incluye `restaurantPages` con carga diferida). No importar archivos internos desde fuera.
-- **Capas:** `domain/` (puro, con pruebas) → `application/` (hooks) → `infrastructure/` (Firestore) · `ui/`, `pages/`.
+- **Entidades:** `Zone`, `Table`, `RestaurantOrder` (`restaurantOrders`), `tableStatusMachine`, `orderStatusMachine`
+- **Permisos:** tomar pedidos `sales.create`; configurar mesas `settings.manage`.
+- **API pública:** `index.ts` (`restaurantPages`, `registerRestaurantSaleHandler`).
+- El cobro reutiliza el POS: `loadRestaurantOrderIntoCart` y el aviso `onRestaurantSalePaid` de `sales`.
 
-Detalle (pantallas, reglas y pendientes): [docs/features/restaurant.md](../../../docs/features/restaurant.md).
+Detalle: [docs/features/restaurant.md](../../../docs/features/restaurant.md).

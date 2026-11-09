@@ -223,6 +223,27 @@ export function buildSeedWrites(now: Date): SeedWrite[] {
       ]);
     }
 
+    // Restaurante: zonas y mesas de ejemplo para el tablero y la cocina.
+    if (business.modules.restaurant) {
+      const zones = [
+        { id: 'salon', name: 'Salón', tables: ['Mesa 1', 'Mesa 2', 'Mesa 3', 'Mesa 4'] },
+        { id: 'terraza', name: 'Terraza', tables: ['Mesa 5', 'Mesa 6'] },
+      ];
+      zones.forEach((zone, sortOrder) => {
+        writes.push([
+          `${base}/restaurantZones/${zone.id}`,
+          { name: zone.name, sortOrder, ...audit(owner) },
+        ]);
+        for (const name of zone.tables) {
+          const id = name.toLowerCase().replace(' ', '-');
+          writes.push([
+            `${base}/restaurantTables/${id}`,
+            { name, zoneId: zone.id, seats: 4, status: 'free', ...audit(owner) },
+          ]);
+        }
+      });
+    }
+
     const yesterday = new Date(now.getTime() - 86_400_000);
     writes.push([
       `${base}/cashShifts/shift-yesterday`,

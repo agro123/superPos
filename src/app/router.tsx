@@ -118,7 +118,11 @@ export const routes: RouteObject[] = [
                       {
                         path: 'restaurant',
                         element: <RequireModule module="restaurant" />,
-                        children: [{ path: 'tables', lazy: page(restaurantPages.tables) }],
+                        children: [
+                          { path: 'tables', lazy: page(restaurantPages.tables) },
+                          { path: 'tables/:tableId', lazy: page(restaurantPages.table) },
+                          { path: 'kitchen', lazy: page(restaurantPages.kitchen) },
+                        ],
                       },
                       { path: '*', element: <NotFoundPage /> },
                     ],

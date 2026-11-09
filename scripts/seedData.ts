@@ -145,7 +145,7 @@ export const BUSINESSES: SeedBusiness[] = [
       p('cheesecake', 'Cheesecake', 'postres', 12000, 2, { lowStockThreshold: 3 }),
     ],
     customers: ['Valentina Cárdenas', 'Andrés Mejía'],
-    modules: { restaurant: false, customers: true },
+    modules: { restaurant: true, customers: true },
     // Gratis: 1 cupo (Luis), sin reportes ni roles personalizados.
     plan: 'free',
     status: 'active',

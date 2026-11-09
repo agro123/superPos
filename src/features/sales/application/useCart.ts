@@ -1,7 +1,7 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import type { CartLine } from '../domain/cart';
 import { toTotalsLines } from '../domain/cart';
-import { activeOrder, type CartOrder } from '../domain/orders';
+import { activeOrder, type CartOrder, type RestaurantLink } from '../domain/orders';
 import { calculateTotals, type Totals } from '../domain/totals';
 import { useCartStore } from './cartStore';
 
@@ -24,6 +24,8 @@ export interface CartView {
   activeOrderId: string;
   /** Cliente de la orden activa. */
   customerId: string | null;
+  /** Comanda de restaurante vinculada a la orden activa. */
+  restaurant: RestaurantLink | null;
   /** Líneas de la orden activa. */
   lines: readonly CartLine[];
   totals: Totals;
@@ -44,6 +46,7 @@ export function useCart(businessId: string, pricesIncludeTax: boolean): CartView
     orders: book?.orders ?? NO_ORDERS,
     activeOrderId: active?.id ?? '',
     customerId: active?.customerId ?? null,
+    restaurant: active?.restaurant ?? null,
     lines,
     totals,
   };

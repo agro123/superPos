@@ -34,7 +34,10 @@ export function OrderTabs({ orders, activeId, onSelect, onOpen, onClose }: Order
       >
         {orders.map((order) => {
           const active = order.id === activeId;
-          const label = t('pos.order', { number: formatNumber(order.number) });
+          // Una comanda de restaurante se identifica por su mesa.
+          const label = order.restaurant
+            ? order.restaurant.tableName
+            : t('pos.order', { number: formatNumber(order.number) });
           const count = itemsOf(order);
           return (
             <div

@@ -8,6 +8,15 @@ export interface CartOrder {
   lines: CartLine[];
   /** Cliente registrado de la orden (opcional; necesario para fiar). */
   customerId?: string | null;
+  /** Comanda de restaurante que se cobra con esta orden. */
+  restaurant?: RestaurantLink | null;
+}
+
+/** Vínculo con una comanda: al registrar la venta, la comanda se marca cobrada. */
+export interface RestaurantLink {
+  orderId: string;
+  tableId: string;
+  tableName: string;
 }
 
 /** Órdenes abiertas de un negocio y la que está activa. */
@@ -75,5 +84,27 @@ export function setActiveCustomer(book: OrderBook, customerId: string | null): O
   return {
     ...book,
     orders: book.orders.map((order) => (order.id === active.id ? { ...order, customerId } : order)),
+  };
+}
+
+/**
+ * Carga una comanda para cobrarla: reutiliza la orden ya vinculada a esa comanda (actualizando sus
+ * líneas) o abre una nueva. Si no hay espacio para otra orden, devuelve el libro sin cambios.
+ */
+export function loadRestaurantOrder(
+  book: OrderBook,
+  id: string,
+  link: RestaurantLink,
+  lines: CartLine[],
+): OrderBook {
+  const existing = book.orders.find((order) => order.restaurant?.orderId === link.orderId);
+  const target = existing ? selectOrder(book, existing.id) : openOrder(book, id);
+  if (!existing && target === book) return book;
+  const active = activeOrder(target);
+  return {
+    ...target,
+    orders: target.orders.map((order) =>
+      order.id === active.id ? { ...order, lines, restaurant: link } : order,
+    ),
   };
 }

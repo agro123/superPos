@@ -61,6 +61,7 @@ export default function PosPage() {
     businessId: business.id,
     currency: business.currency,
     online,
+    uid: user.uid,
   });
   const posCustomer = usePosCustomer(business.id, modules.customers, cart.customerId);
   const [pickingCustomer, setPickingCustomer] = useState(false);

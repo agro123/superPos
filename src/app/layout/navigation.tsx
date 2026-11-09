@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  ChefHat,
   Boxes,
   ClipboardList,
   Home,
@@ -94,6 +95,12 @@ export const NAVIGATION: readonly NavGroup[] = [
         to: '/restaurant/tables',
         label: 'nav.tables',
         icon: <UtensilsCrossed />,
+        module: 'restaurant',
+      },
+      {
+        to: '/restaurant/kitchen',
+        label: 'nav.kitchen',
+        icon: <ChefHat />,
         module: 'restaurant',
       },
     ],

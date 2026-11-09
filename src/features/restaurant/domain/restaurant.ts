@@ -14,11 +14,14 @@ export const tableStatusMachine = defineStateMachine<TableStatus>('table', {
 export const ORDER_STATUSES = ['open', 'sent', 'served', 'paid', 'cancelled'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-/** Comanda: abierta → enviada a cocina → servida → pagada. Se cancela antes de servir (L8). */
+/**
+ * Comanda: abierta → enviada a cocina → servida → pagada. Tras servir se puede enviar otra ronda
+ * (servida → enviada); se cobra en cualquier momento activo y se cancela antes de servir (L8).
+ */
 export const orderStatusMachine = defineStateMachine<OrderStatus>('order', {
-  open: ['sent', 'cancelled'],
-  sent: ['served', 'cancelled'],
-  served: ['paid'],
+  open: ['sent', 'paid', 'cancelled'],
+  sent: ['served', 'paid', 'cancelled'],
+  served: ['sent', 'paid'],
   paid: [],
   cancelled: [],
 });

@@ -13,9 +13,11 @@ import {
   createOrderBook,
   openOrder,
   selectOrder,
+  loadRestaurantOrder,
   setActiveCustomer,
   updateActiveLines,
   type OrderBook,
+  type RestaurantLink,
 } from '../domain/orders';
 
 interface CartState {
@@ -29,6 +31,7 @@ interface CartState {
   selectOrder: (businessId: string, orderId: string) => void;
   closeOrder: (businessId: string, orderId: string) => void;
   setCustomer: (businessId: string, customerId: string | null) => void;
+  loadRestaurantOrder: (businessId: string, link: RestaurantLink, lines: CartLine[]) => void;
 }
 
 const newId = () => crypto.randomUUID();
@@ -70,6 +73,11 @@ export const useCartStore = create<CartState>()(
       },
       selectOrder: (businessId, orderId) => {
         set((state) => update(state, businessId, (book) => selectOrder(book, orderId)));
+      },
+      loadRestaurantOrder: (businessId, link, lines) => {
+        set((state) =>
+          update(state, businessId, (book) => loadRestaurantOrder(book, newId(), link, lines)),
+        );
       },
       setCustomer: (businessId, customerId) => {
         set((state) => update(state, businessId, (book) => setActiveCustomer(book, customerId)));

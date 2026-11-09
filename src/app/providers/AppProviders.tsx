@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useAuthListener } from '@/features/auth';
 import { registerCatalogOutboxHandlers } from '@/features/catalog';
+import { registerRestaurantSaleHandler } from '@/features/restaurant';
 import { useToastStore } from '@/shared/hooks/useToast';
 import { useSyncStore } from '@/shared/infrastructure/offline/syncStore';
 import { getOutbox, startSyncMonitor } from '@/shared/infrastructure/offline/runtime';
@@ -30,7 +31,12 @@ function GlobalEffects() {
 
   useEffect(() => {
     registerCatalogOutboxHandlers(getOutbox());
-    return startSyncMonitor();
+    const stopRestaurant = registerRestaurantSaleHandler();
+    const stopSync = startSyncMonitor();
+    return () => {
+      stopRestaurant();
+      stopSync();
+    };
   }, []);
 
   useEffect(() => {

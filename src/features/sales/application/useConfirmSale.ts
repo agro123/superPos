@@ -6,6 +6,7 @@ import { t } from '@/shared/lib/i18n';
 import type { CartView } from './useCart';
 import type { useCheckout } from './useCheckout';
 import { useCartStore } from './cartStore';
+import { notifyRestaurantSalePaid } from './saleEvents';
 
 interface ConfirmSaleOptions {
   checkout: ReturnType<typeof useCheckout>;
@@ -13,6 +14,7 @@ interface ConfirmSaleOptions {
   businessId: string;
   currency: CurrencyCode;
   online: boolean;
+  uid: string;
 }
 
 /** Registra la venta de la orden activa, avisa (vuelto, fiado, offline) y cierra la orden. */
@@ -22,6 +24,7 @@ export function useConfirmSale({
   businessId,
   currency,
   online,
+  uid,
 }: ConfirmSaleOptions) {
   const toast = useToast();
   const closeOrder = useCartStore((state) => state.closeOrder);
@@ -46,6 +49,14 @@ export function useConfirmSale({
       description: notes.length > 0 ? notes.join(' · ') : undefined,
       tone: 'success',
     });
+    if (cart.restaurant) {
+      notifyRestaurantSalePaid({
+        businessId,
+        saleId: sale.id,
+        uid,
+        restaurant: cart.restaurant,
+      });
+    }
     closeOrder(businessId, cart.activeOrderId);
     return true;
   };

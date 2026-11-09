@@ -119,8 +119,14 @@ export function updateModules(
   bid: string,
   modules: Pick<ModulesSettings, 'restaurant' | 'customers'>,
 ): void {
+  // Solo los dos interruptores: el objeto que llega de la UI puede traer `id` y campos de
+  // auditoría leídos de Firestore, y las reglas exigen exactamente estos campos.
   trackWrite(
-    updateDoc(settingsRef(bid, 'modules'), { ...modules, ...updateAudit() }),
+    updateDoc(settingsRef(bid, 'modules'), {
+      restaurant: modules.restaurant,
+      customers: modules.customers,
+      ...updateAudit(),
+    }),
     'settings.modules',
   );
 }

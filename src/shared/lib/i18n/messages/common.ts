@@ -20,6 +20,7 @@ export const common = {
   'nav.reports': 'Reportes',
   'nav.settings': 'Configuración',
   'nav.tables': 'Mesas',
+  'nav.kitchen': 'Cocina',
   'nav.sectionManage': 'Administrar',
   'nav.sectionModules': 'Módulos',
 

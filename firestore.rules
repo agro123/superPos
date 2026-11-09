@@ -879,6 +879,61 @@ service cloud.firestore {
         allow delete: if hasPermission(bid, 'settings.manage');
       }
 
+      // ----- restaurantOrders/{id}: comandas (máquina de estados en el servidor, L8) -----
+
+      function orderFields() {
+        return ['tableId', 'tableName', 'status', 'guests', 'lines', 'round', 'notes', 'saleId', 'openedAt', 'sentAt', 'servedAt', 'closedAt'];
+      }
+
+      function validOrder(d) {
+        return isText(d.tableId, 1, 128)
+          && isText(d.tableName, 1, 20)
+          && d.guests is int && d.guests >= 1 && d.guests <= 50
+          && d.lines is list && d.lines.size() <= 100
+          && d.round is int && d.round >= 0
+          && isOptionalText(d.notes, 200)
+          && isOptionalId(d.saleId);
+      }
+
+      function validOrderTransition(from, to) {
+        return from == to
+          || (from == 'open' && to in ['sent', 'paid', 'cancelled'])
+          || (from == 'sent' && to in ['served', 'paid', 'cancelled'])
+          || (from == 'served' && to in ['sent', 'paid']);
+      }
+
+      match /restaurantOrders/{orderId} {
+        allow read: if isMember(bid) && moduleActive(bid, 'restaurant');
+        allow create: if hasPermission(bid, 'sales.create')
+          && moduleActive(bid, 'restaurant')
+          && hasExactly(orderFields())
+          && validOrder(request.resource.data)
+          && request.resource.data.status == 'open'
+          && request.resource.data.round == 0
+          && request.resource.data.saleId == null
+          && request.resource.data.openedAt == request.time
+          && request.resource.data.sentAt == null
+          && request.resource.data.servedAt == null
+          && request.resource.data.closedAt == null
+          && exists(/databases/$(database)/documents/businesses/$(bid)/restaurantTables/$(request.resource.data.tableId))
+          && isNewAudit();
+        // Sin delete: una comanda cerrada queda como historial.
+        allow update: if hasPermission(bid, 'sales.create')
+          && moduleActive(bid, 'restaurant')
+          && isUpdateAudit()
+          && onlyChanges(['status', 'guests', 'lines', 'round', 'notes', 'saleId', 'sentAt', 'servedAt', 'closedAt'])
+          && resource.data.status in ['open', 'sent', 'served']
+          && validOrder(request.resource.data)
+          && validOrderTransition(resource.data.status, request.resource.data.status)
+          && request.resource.data.round >= resource.data.round
+          // Cobrada: apunta a una venta existente; cerrada (cobrada o cancelada) con hora del servidor.
+          && (request.resource.data.status != 'paid'
+            || (request.resource.data.saleId is string
+              && exists(/databases/$(database)/documents/businesses/$(bid)/sales/$(request.resource.data.saleId))))
+          && (!(request.resource.data.status in ['paid', 'cancelled'])
+            || request.resource.data.closedAt == request.time);
+      }
+
       match /restaurantTables/{tableId} {
         allow read: if isMember(bid) && moduleActive(bid, 'restaurant');
         allow create: if hasPermission(bid, 'settings.manage')

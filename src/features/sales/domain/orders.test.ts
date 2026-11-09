@@ -8,6 +8,7 @@ import {
   MAX_OPEN_ORDERS,
   openOrder,
   selectOrder,
+  loadRestaurantOrder,
   setActiveCustomer,
   updateActiveLines,
 } from './orders';
@@ -35,6 +36,16 @@ describe('órdenes del carrito', () => {
     const book = openOrder(setActiveCustomer(createOrderBook('a'), 'cu1'), 'b');
     expect(activeOrder(book).customerId).toBeUndefined();
     expect(activeOrder(selectOrder(book, 'a')).customerId).toBe('cu1');
+  });
+
+  it('carga una comanda en una orden propia y la reutiliza si se vuelve a cargar', () => {
+    const link = { orderId: 'c1', tableId: 't1', tableName: 'Mesa 1' };
+    let book = loadRestaurantOrder(createOrderBook('a'), 'b', link, []);
+    expect(activeOrder(book)).toMatchObject({ id: 'b', restaurant: link });
+    book = selectOrder(book, 'a');
+    book = loadRestaurantOrder(book, 'z', link, addToCart([], coffee));
+    expect(book.orders).toHaveLength(2);
+    expect(activeOrder(book)).toMatchObject({ id: 'b', lines: [{ productId: 'p1' }] });
   });
 
   it('al cerrar activa la vecina o deja una orden vacía', () => {
